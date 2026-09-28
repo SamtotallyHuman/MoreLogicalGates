@@ -1,0 +1,1347 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Logic Circuit Editor</title>
+        <style>
+            :root {
+                --bg: #172532;
+                --panel: #263d50;
+                --panel2: #314e66;
+                --line: #7890a3;
+                --text: #e7eef5;
+                --accent: #00b9df;
+                --gate: #353229;
+                --gateStroke: #171717;
+                --wire: #202830;
+                --grid: #dfe5ea;
+                --gridMajor: #c7d0d8;
+                --danger: #b84a4a;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            html,
+            body {
+                margin: 0;
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                font-family:
+                    Inter,
+                    system-ui,
+                    -apple-system,
+                    Segoe UI,
+                    Arial,
+                    sans-serif;
+            }
+            body {
+                background: var(--bg);
+                color: var(--text);
+            }
+            #app {
+                width: 100%;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+            }
+            #toolbar {
+                height: 58px;
+                min-height: 58px;
+                background: var(--panel);
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                padding: 0 10px;
+                border-bottom: 1px solid #3e5668;
+                box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+                z-index: 20;
+            }
+            .toolGroup {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding-right: 8px;
+                border-right: 1px solid #466175;
+            }
+            .toolGroup:last-child {
+                border-right: 0;
+            }
+            button {
+                appearance: none;
+                border: 0;
+                background: var(--panel2);
+                color: var(--text);
+                padding: 8px 11px;
+                border-radius: 7px;
+                font-size: 13px;
+                cursor: pointer;
+            }
+            button:hover {
+                filter: brightness(1.12);
+            }
+            button.active {
+                outline: 2px solid var(--accent);
+                background: #3d647e;
+            }
+            button.danger {
+                background: var(--danger);
+            }
+            .title {
+                font-weight: 700;
+                margin: 0 6px 0 2px;
+                font-size: 14px;
+                white-space: nowrap;
+            }
+            #main {
+                display: flex;
+                min-height: 0;
+                flex: 1;
+            }
+            #palette {
+                width: 190px;
+                background: #203547;
+                border-right: 1px solid #385166;
+                padding: 12px;
+                overflow: auto;
+                z-index: 10;
+            }
+            #palette h3 {
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                color: #a6b9c7;
+                margin: 7px 4px 9px;
+            }
+            .paletteItem {
+                width: 100%;
+                margin: 5px 0;
+                text-align: left;
+                background: #2a465b;
+                border: 1px solid #3e5d73;
+                padding: 9px 10px;
+                border-radius: 7px;
+            }
+            .paletteItem small {
+                display: block;
+                color: #a8bbc8;
+                margin-top: 2px;
+            }
+            #workspace {
+                position: relative;
+                flex: 1;
+                min-width: 0;
+                min-height: 0;
+                background: #fff;
+            }
+            #svg {
+                width: 100%;
+                height: 100%;
+                display: block;
+                user-select: none;
+                cursor: grab;
+                background: #fff;
+            }
+            #svg.panning {
+                cursor: grabbing;
+            }
+            #status {
+                position: absolute;
+                right: 12px;
+                bottom: 12px;
+                background: rgba(28, 45, 59, 0.9);
+                padding: 7px 10px;
+                border-radius: 7px;
+                font-size: 12px;
+                color: #dce7ee;
+                pointer-events: none;
+            }
+            #selectionBox {
+                fill: rgba(0, 185, 223, 0.08);
+                stroke: #00aacc;
+                stroke-width: 1.2;
+                stroke-dasharray: 6 4;
+            }
+            .wire {
+                fill: none;
+                stroke: var(--wire);
+                stroke-width: 3;
+                pointer-events: stroke;
+                cursor: pointer;
+            }
+            .wire.selected {
+                stroke: var(--accent);
+                stroke-width: 4;
+            }
+            .wireHit {
+                fill: none;
+                stroke: transparent;
+                stroke-width: 14;
+                pointer-events: stroke;
+                cursor: pointer;
+            }
+            .node {
+                cursor: move;
+            }
+            .node.selected .body {
+                stroke: var(--accent);
+                stroke-width: 3;
+            }
+            .body {
+                fill: var(--gate);
+                stroke: var(--gateStroke);
+                stroke-width: 2;
+            }
+            .node text {
+                font-size: 12px;
+                fill: #fff;
+                pointer-events: none;
+                text-anchor: middle;
+            }
+            .node .subtext {
+                font-size: 10px;
+                fill: #bed0dc;
+            }
+            .port {
+                fill: #fff;
+                stroke: #1b252c;
+                stroke-width: 2;
+                cursor: crosshair;
+            }
+            .port.out {
+                fill: #dbe8ef;
+            }
+            .port.connected {
+                fill: #9fdcf0;
+            }
+            .port:hover {
+                fill: var(--accent);
+            }
+            .wireLabel {
+                fill: #fff;
+                stroke: #9eacb7;
+                stroke-width: 1.2;
+                paint-order: stroke;
+                font-size: 11px;
+                font-weight: 600;
+                pointer-events: none;
+            }
+            .wireLabelBg {
+                fill: #fff;
+                opacity: 0.92;
+                rx: 4;
+            }
+            .textInput {
+                position: absolute;
+                display: none;
+                z-index: 30;
+                background: #fff;
+                border: 1px solid #799;
+                border-radius: 5px;
+                padding: 4px 7px;
+                font: 12px Arial;
+            }
+            #componentBar {
+                display: flex;
+                gap: 6px;
+                flex-wrap: wrap;
+            }
+            .componentBtn {
+                background: #37556b;
+            }
+            .hint {
+                font-size: 11px;
+                line-height: 1.35;
+                color: #a9bcc8;
+                margin: 6px 3px 12px;
+            }
+            dialog {
+                border: 1px solid #597287;
+                border-radius: 10px;
+                padding: 18px;
+                background: #203547;
+                color: #fff;
+                box-shadow: 0 16px 50px rgba(0, 0, 0, 0.45);
+                width: 360px;
+            }
+            dialog::backdrop {
+                background: rgba(0, 0, 0, 0.35);
+            }
+            dialog input {
+                width: 100%;
+                padding: 9px;
+                border-radius: 6px;
+                border: 1px solid #60788c;
+                background: #152734;
+                color: #fff;
+            }
+            dialog .row {
+                display: flex;
+                gap: 7px;
+                justify-content: flex-end;
+                margin-top: 13px;
+            }
+            .pill {
+                font-size: 11px;
+                padding: 3px 6px;
+                background: #3a5c72;
+                border-radius: 999px;
+                color: #dbe7ed;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="app">
+            <div id="toolbar">
+                <div class="toolGroup">
+                    <div class="title">Logic Editor</div>
+                    <button id="selectTool" class="active">Select</button>
+                    <button id="wireTool">Wire</button>
+                </div>
+                <div class="toolGroup">
+                    <button data-add="AND">AND</button>
+                    <button data-add="OR">OR</button>
+                    <button data-add="NOT">NOT</button>
+                </div>
+                <div class="toolGroup">
+                    <button data-add="INPUT">Input</button>
+                    <button data-add="OUTPUT">Output</button>
+                </div>
+                <div class="toolGroup">
+                    <button id="saveComponent">Save component</button>
+                    <button id="deleteBtn" class="danger">Delete</button>
+                </div>
+                <div class="toolGroup">
+                    <button id="zoomOut">−</button>
+                    <button id="zoomReset">100%</button>
+                    <button id="zoomIn">+</button>
+                    <button id="fitBtn">Fit</button>
+                </div>
+                <div class="toolGroup">
+                    <button id="saveLocal">Save</button>
+                    <button id="loadLocal">Load</button>
+                    <button id="exportBtn">Export</button>
+                    <button id="importBtn">Import</button>
+                </div>
+            </div>
+
+            <div id="main">
+                <aside id="palette">
+                    <h3>Components</h3>
+                    <div class="hint">
+                        Drag or click an item to place it. Custom components are
+                        saved here and can be reused.
+                    </div>
+                    <div id="componentBar"></div>
+                    <h3>Shortcuts</h3>
+                    <div class="hint">
+                        Drag nodes to move. Middle mouse / Space + drag pans.<br />
+                        Wheel zooms around the cursor.<br />
+                        Drag from an output port to an input port to connect.<br />
+                        Shift-click nodes to multi-select.
+                    </div>
+                </aside>
+
+                <section id="workspace">
+                    <svg id="svg"></svg>
+                    <div id="status">Zoom 100%</div>
+                    <input
+                        id="inlineLabel"
+                        class="textInput"
+                        autocomplete="off"
+                    />
+                </section>
+            </div>
+        </div>
+
+        <dialog id="nameDialog">
+            <form method="dialog" id="nameForm">
+                <h3 style="margin: 0 0 12px">Save component</h3>
+                <p style="font-size: 12px; color: #afc1cd; margin-top: 0">
+                    Selected gates will be stored as a reusable component.
+                    Input/output nodes form its external interface.
+                </p>
+                <input
+                    id="componentName"
+                    placeholder="e.g. Full Adder"
+                    required
+                />
+                <div class="row">
+                    <button value="cancel">Cancel</button>
+                    <button id="confirmSave" value="default">
+                        Save component
+                    </button>
+                </div>
+            </form>
+        </dialog>
+
+        <input
+            type="file"
+            id="fileInput"
+            accept=".json,application/json"
+            style="display: none"
+        />
+
+        <script>
+            const svg = document.getElementById("svg");
+            const workspace = document.getElementById("workspace");
+            const statusEl = document.getElementById("status");
+            const inlineLabel = document.getElementById("inlineLabel");
+
+            const state = {
+                nodes: [],
+                wires: [],
+                selected: new Set(),
+                selectedWire: null,
+                tool: "select",
+                pan: { x: 0, y: 0 },
+                zoom: 1,
+                components: [],
+                connecting: null,
+                mouseWorld: { x: 0, y: 0 },
+                isPanning: false,
+                panStart: null,
+                drag: null,
+                rubberBand: null,
+            };
+
+            const NODE_W = 75;
+            const NODE_H = 50;
+            const GRID = 12.5;
+
+            const gateInputs = {
+                AND: 2,
+                OR: 2,
+                NOT: 1,
+                INPUT: 0,
+                OUTPUT: 1,
+            };
+
+            function uid(prefix = "id") {
+                return (
+                    prefix +
+                    "_" +
+                    Math.random().toString(36).slice(2, 10) +
+                    "_" +
+                    Date.now().toString(36)
+                );
+            }
+
+            function snap(v) {
+                return Math.round(v / GRID) * GRID;
+            }
+
+            function nodeInputY(node, index) {
+                const n = gateInputs[node.type];
+                if (n <= 1) return node.y + NODE_H / 2;
+                return node.y + 15 + index * ((NODE_H - 30) / (n - 1));
+            }
+
+            function nodeOutput(node) {
+                return { x: node.x + NODE_W, y: node.y + NODE_H / 2 };
+            }
+
+            function svgPoint(evt) {
+                const r = svg.getBoundingClientRect();
+                return {
+                    x: (evt.clientX - r.left - state.pan.x) / state.zoom,
+                    y: (evt.clientY - r.top - state.pan.y) / state.zoom,
+                };
+            }
+
+            function worldToScreen(p) {
+                return {
+                    x: p.x * state.zoom + state.pan.x,
+                    y: p.y * state.zoom + state.pan.y,
+                };
+            }
+
+            function gateColor(type) {
+                if (type === "INPUT") return "#2d6979";
+                if (type === "OUTPUT") return "#6b5169";
+                if (type === "NOT") return "#14677a";
+                return "#353229";
+            }
+
+            function gateShape(type) {
+                if (type === "INPUT" || type === "OUTPUT" || type === "NOT") {
+                    return `M 0 0 H ${NODE_W - 16} L ${NODE_W} ${NODE_H / 2} L ${NODE_W - 16} ${NODE_H} H 0 Z`;
+                }
+                if (type === "OR") {
+                    return `M 0 0
+                C 28 0, 55 8, ${NODE_W} ${NODE_H / 2}
+                C 55 ${NODE_H - 8}, 28 ${NODE_H}, 0 ${NODE_H}
+                C 17 ${NODE_H - 10}, 17 10, 0 0 Z`;
+                }
+                return `M 0 0 H ${NODE_W / 2}
+             C ${NODE_W - 4} 0, ${NODE_W} 11, ${NODE_W} ${NODE_H / 2}
+             C ${NODE_W} ${NODE_H - 11}, ${NODE_W - 4} ${NODE_H}, ${NODE_W / 2} ${NODE_H}
+             H 0 Z`;
+            }
+
+            function makeNode(type, x, y, extra = {}) {
+                const n = {
+                    id: uid("node"),
+                    type,
+                    x: snap(x),
+                    y: snap(y),
+                    label:
+                        type === "INPUT"
+                            ? "A"
+                            : type === "OUTPUT"
+                              ? "OUT"
+                              : type,
+                    value: false,
+                    ...extra,
+                };
+                state.nodes.push(n);
+                return n;
+            }
+
+            function addNode(type, pos = null) {
+                const p = pos || state.mouseWorld || { x: 150, y: 150 };
+                const n = makeNode(type, p.x - NODE_W / 2, p.y - NODE_H / 2);
+                state.selected.clear();
+                state.selected.add(n.id);
+                render();
+                if (type === "INPUT" || type === "OUTPUT") beginRename(n);
+                return n;
+            }
+
+            function nodeById(id) {
+                return state.nodes.find((n) => n.id === id);
+            }
+
+            function pathForWire(fromNode, toNode, inputIndex) {
+                const a = nodeOutput(fromNode);
+                const b = { x: toNode.x, y: nodeInputY(toNode, inputIndex) };
+                const dx = Math.max(35, (b.x - a.x) * 0.5);
+                return `M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x} ${b.y}`;
+            }
+
+            function evaluateGate(type, inputs) {
+                switch (type) {
+                    case "AND":
+                        return inputs.every(Boolean);
+                    case "OR":
+                        return inputs.some(Boolean);
+                    case "NOT":
+                        return !inputs[0];
+                    default:
+                        return Boolean(inputs[0]);
+                }
+            }
+
+            function recompute() {
+                // Inputs are source nodes. Propagate repeatedly so arbitrary acyclic circuits settle.
+                for (let pass = 0; pass < state.nodes.length + 2; pass++) {
+                    let changed = false;
+                    for (const n of state.nodes) {
+                        if (n.type === "INPUT") continue;
+                        const ins = Array.from(
+                            { length: gateInputs[n.type] },
+                            () => false,
+                        );
+                        for (const w of state.wires) {
+                            if (w.to === n.id && w.input < ins.length) {
+                                const src = nodeById(w.from);
+                                if (src) ins[w.input] = !!src.value;
+                            }
+                        }
+                        const next =
+                            n.type === "OUTPUT"
+                                ? !!ins[0]
+                                : evaluateGate(n.type, ins);
+                        if (next !== n.value) {
+                            n.value = next;
+                            changed = true;
+                        }
+                    }
+                    if (!changed) break;
+                }
+            }
+
+            function valueToString(value) {
+                return value ? "1" : "0";
+            }
+
+            function wireValue(w) {
+                return nodeById(w.from).value;
+            }
+
+			function valueToNumber(value) {
+				return value ? 1 : 0;
+			}
+
+			function wireColour(w) {
+				const hex1 = "#62686E";
+				const hex2 = "#202830";
+
+				const a = hex1.match(/\w\w/g).map(x => parseInt(x, 16));
+				const b = hex2.match(/\w\w/g).map(x => parseInt(x, 16));
+
+				const rgb = a.map((x, i) => Math.round(x + (b[i] - x) * valueToNumber(wireValue(w))));
+
+				return "#" + rgb.map(x => x.toString(16).padStart(2, "0")).join("");
+			}
+
+            function render() {
+                recompute();
+                svg.innerHTML = "";
+
+                // background + world transform
+                const defs = document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    "defs",
+                );
+
+                const small = document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    "pattern",
+                );
+                small.setAttribute("id", "grid");
+                small.setAttribute("width", GRID);
+                small.setAttribute("height", GRID);
+                small.setAttribute("patternUnits", "userSpaceOnUse");
+                const rect = document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    "rect",
+                );
+                rect.setAttribute("width", GRID);
+                rect.setAttribute("height", GRID);
+                rect.setAttribute("fill", "#fff");
+                const line1 = document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    "path",
+                );
+                line1.setAttribute("d", `M ${GRID} 0 L 0 0 0 ${GRID}`);
+                line1.setAttribute("fill", "none");
+                line1.setAttribute("stroke", "#e8edf1");
+                line1.setAttribute("stroke-width", "1");
+                small.append(rect, line1);
+                defs.appendChild(small);
+                svg.appendChild(defs);
+
+                const worldBg = document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    "rect",
+                );
+                worldBg.setAttribute("width", svg.clientWidth);
+                worldBg.setAttribute("height", svg.clientHeight);
+                worldBg.setAttribute("fill", "url(#grid)");
+                worldBg.setAttribute(
+                    "transform",
+                    `translate(${state.pan.x},${state.pan.y}) scale(${state.zoom})`,
+                );
+                svg.appendChild(worldBg);
+
+                const world = document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    "g",
+                );
+                world.setAttribute(
+                    "transform",
+                    `translate(${state.pan.x},${state.pan.y}) scale(${state.zoom})`,
+                );
+                svg.appendChild(world);
+
+                // wires
+                for (const w of state.wires) {
+                    const a = nodeById(w.from),
+                        b = nodeById(w.to);
+                    if (!a || !b) continue;
+                    const d = pathForWire(a, b, w.input);
+
+                    const hit = document.createElementNS(
+                        "http://www.w3.org/2000/svg",
+                        "path",
+                    );
+                    hit.setAttribute("d", d);
+                    hit.classList.add("wireHit");
+                    hit.addEventListener("click", (e) => {
+                        e.stopPropagation();
+                        state.selected.clear();
+                        state.selectedWire = w.id;
+                        render();
+                    });
+                    world.appendChild(hit);
+
+                    const path = document.createElementNS(
+                        "http://www.w3.org/2000/svg",
+                        "path",
+                    );
+                    path.setAttribute("d", d);
+                    path.classList.add("wire");
+                    if (state.selectedWire === w.id)
+                        path.classList.add("selected");
+					path.style.setProperty("--wire", wireColour(w));
+                    world.appendChild(path);
+
+                    const t0 = nodeOutput(a);
+                    const t1 = { x: b.x, y: nodeInputY(b, w.input) };
+                    const mx = (t0.x + t1.x) / 2,
+                        my = (t0.y + t1.y) / 2;
+                    const label = valueToString(wireValue(w));
+                    if (label) {
+                        const txt = document.createElementNS(
+                            "http://www.w3.org/2000/svg",
+                            "text",
+                        );
+                        txt.setAttribute("x", mx);
+                        txt.setAttribute("y", my + 3.5);
+                        txt.setAttribute("class", "wireLabel");
+                        txt.textContent = label;
+                        world.appendChild(txt);
+                        const bb = txt.getBBox();
+                        const bg = document.createElementNS(
+                            "http://www.w3.org/2000/svg",
+                            "rect",
+                        );
+                        bg.setAttribute("x", bb.x - 2.5);
+                        bg.setAttribute("y", bb.y);
+                        bg.setAttribute("width", bb.width + 5);
+                        bg.setAttribute("height", bb.height);
+                        bg.setAttribute("class", "wireLabelBg");
+                        world.appendChild(bg);
+                        txt.remove();
+                        world.appendChild(txt);
+                    }
+                }
+
+                // temporary connection wire
+                if (state.connecting) {
+                    const n = nodeById(state.connecting.nodeId);
+                    if (n) {
+                        const a = nodeOutput(n),
+                            b = state.mouseWorld;
+                        const path = document.createElementNS(
+                            "http://www.w3.org/2000/svg",
+                            "path",
+                        );
+                        path.setAttribute(
+                            "d",
+                            `M ${a.x} ${a.y} C ${(a.x + b.x) / 2} ${a.y}, ${(a.x + b.x) / 2} ${b.y}, ${b.x} ${b.y}`,
+                        );
+                        path.classList.add("wire", "selected");
+                        path.setAttribute("stroke-dasharray", "7 5");
+                        world.appendChild(path);
+                    }
+                }
+
+                // nodes
+                for (const n of state.nodes) {
+                    const g = document.createElementNS(
+                        "http://www.w3.org/2000/svg",
+                        "g",
+                    );
+                    g.classList.add("node");
+                    if (state.selected.has(n.id)) g.classList.add("selected");
+                    g.setAttribute("transform", `translate(${n.x},${n.y})`);
+                    g.dataset.id = n.id;
+
+                    const body = document.createElementNS(
+                        "http://www.w3.org/2000/svg",
+                        "path",
+                    );
+                    body.setAttribute("d", gateShape(n.type));
+                    body.setAttribute("class", "body");
+                    body.setAttribute("fill", gateColor(n.type));
+                    g.appendChild(body);
+
+                    const text = document.createElementNS(
+                        "http://www.w3.org/2000/svg",
+                        "text",
+                    );
+                    text.setAttribute("x", NODE_W / 2);
+                    text.setAttribute("y", NODE_H / 2);
+                    text.textContent =
+                        n.type === "INPUT" || n.type === "OUTPUT"
+                            ? n.label
+                            : n.type;
+                    g.appendChild(text);
+
+                    if (gateInputs[n.type] > 0) {
+                        for (let i = 0; i < gateInputs[n.type]; i++) {
+                            const c = document.createElementNS(
+                                "http://www.w3.org/2000/svg",
+                                "circle",
+                            );
+                            c.setAttribute("cx", 0);
+                            c.setAttribute("cy", nodeInputY(n, i) - n.y);
+                            c.setAttribute("r", 5);
+                            c.classList.add("port");
+                            if (
+                                state.wires.some(
+                                    (w) => w.to === n.id && w.input === i,
+                                )
+                            )
+                                c.classList.add("connected");
+                            c.addEventListener("mousedown", (e) => {
+                                e.stopPropagation();
+                                if (state.connecting) {
+                                    connectToInput(n, i);
+                                }
+                            });
+                            c.addEventListener("click", (e) =>
+                                e.stopPropagation(),
+                            );
+                            g.appendChild(c);
+                        }
+                    }
+
+                    if (n.type !== "OUTPUT") {
+                        const c = document.createElementNS(
+                            "http://www.w3.org/2000/svg",
+                            "circle",
+                        );
+                        c.setAttribute("cx", NODE_W);
+                        c.setAttribute("cy", NODE_H / 2);
+                        c.setAttribute("r", 5);
+                        c.classList.add("port", "out");
+                        c.addEventListener("mousedown", (e) => {
+                            e.stopPropagation();
+                            startConnection(n);
+                        });
+                        g.appendChild(c);
+                    }
+
+                    if (n.type === "INPUT") {
+                        g.addEventListener("dblclick", (e) => {
+                            e.stopPropagation();
+                            n.value = !n.value;
+                            render();
+                        });
+                    }
+
+                    g.addEventListener("mousedown", (e) => nodeMouseDown(e, n, g));
+
+                    world.appendChild(g);
+                }
+
+                // selection rectangle
+                if (state.rubberBand) {
+                    const r = state.rubberBand;
+                    const box = document.createElementNS(
+                        "http://www.w3.org/2000/svg",
+                        "rect",
+                    );
+                    box.setAttribute("x", Math.min(r.x0, r.x1));
+                    box.setAttribute("y", Math.min(r.y0, r.y1));
+                    box.setAttribute("width", Math.abs(r.x1 - r.x0));
+                    box.setAttribute("height", Math.abs(r.y1 - r.y0));
+                    box.setAttribute("id", "selectionBox");
+                    world.appendChild(box);
+                }
+
+                statusEl.textContent = `Zoom ${Math.round(state.zoom * 100)}%  |  Nodes ${state.nodes.length}  |  Wires ${state.wires.length}`;
+            }
+
+            function startConnection(node) {
+                if (node.type === "OUTPUT") return;
+                state.connecting = { nodeId: node.id };
+                state.tool = "wire";
+                render();
+            }
+
+            function connectToInput(target, inputIndex) {
+                if (!state.connecting) return;
+                const source = state.connecting.nodeId;
+                if (source === target.id) return;
+                // one source -> many targets is allowed, but one wire per input
+                state.wires = state.wires.filter(
+                    (w) => !(w.to === target.id && w.input === inputIndex),
+                );
+                state.wires.push({
+                    id: uid("wire"),
+                    from: source,
+                    to: target.id,
+                    input: inputIndex,
+                });
+                state.connecting = null;
+                state.selectedWire = null;
+                state.tool = "select";
+                render();
+            }
+
+            function nodeMouseDown(e, n, g) {
+                if (e.button === 1) return; // middle handled as pan
+                e.stopPropagation();
+
+                if (e.shiftKey) {
+                    if (state.selected.has(n.id)) state.selected.delete(n.id);
+                    else state.selected.add(n.id);
+                } else if (!state.selected.has(n.id)) {
+                    state.selected.clear();
+                    state.selected.add(n.id);
+                }
+
+                const p = svgPoint(e);
+                state.drag = {
+                    origin: { x: p.x, y: p.y },
+                    positions: [...state.selected].map((id) => {
+                        const q = nodeById(id);
+                        return { id, x: q.x, y: q.y };
+                    }),
+                };
+                state.selectedWire = null;
+				if (state.selected.has(n.id)) g.classList.add("selected");
+                //render();
+            }
+
+            svg.addEventListener("mousedown", (e) => {
+                if (e.button === 1 || e.altKey || e.code === "Space") {
+                    state.isPanning = true;
+                    state.panStart = {
+                        x: e.clientX,
+                        y: e.clientY,
+                        px: state.pan.x,
+                        py: state.pan.y,
+                    };
+                    svg.classList.add("panning");
+                    return;
+                }
+
+                if (state.connecting) {
+                    state.connecting = null;
+                    state.tool = "select";
+                    render();
+                    return;
+                }
+
+                if (e.shiftKey) return;
+
+                const p = svgPoint(e);
+                state.selected.clear();
+                state.selectedWire = null;
+                state.rubberBand = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+                render();
+            });
+
+            window.addEventListener("mousemove", (e) => {
+                const p = svgPoint(e);
+                state.mouseWorld = p;
+
+                if (state.isPanning) {
+                    state.pan.x =
+                        state.panStart.px + (e.clientX - state.panStart.x);
+                    state.pan.y =
+                        state.panStart.py + (e.clientY - state.panStart.y);
+                    render();
+                    return;
+                }
+
+                if (state.drag) {
+                    const dx = p.x - state.drag.origin.x,
+                        dy = p.y - state.drag.origin.y;
+                    for (const item of state.drag.positions) {
+                        const n = nodeById(item.id);
+                        n.x = snap(item.x + dx);
+                        n.y = snap(item.y + dy);
+                    }
+                    render();
+                    return;
+                }
+
+                if (state.rubberBand) {
+                    state.rubberBand.x1 = p.x;
+                    state.rubberBand.y1 = p.y;
+                    render();
+                    return;
+                }
+
+                if (state.connecting) render();
+            });
+
+            window.addEventListener("mouseup", (e) => {
+                if (state.isPanning) {
+                    state.isPanning = false;
+                    svg.classList.remove("panning");
+                }
+                if (state.drag) {
+                    state.drag = null;
+                }
+                if (state.rubberBand) {
+                    const r = state.rubberBand;
+                    const x0 = Math.min(r.x0, r.x1),
+                        x1 = Math.max(r.x0, r.x1);
+                    const y0 = Math.min(r.y0, r.y1),
+                        y1 = Math.max(r.y0, r.y1);
+                    if (Math.abs(x1 - x0) > 5 || Math.abs(y1 - y0) > 5) {
+                        state.selected.clear();
+                        for (const n of state.nodes) {
+                            if (
+                                n.x >= x0 &&
+                                n.x + NODE_W <= x1 &&
+                                n.y >= y0 &&
+                                n.y + NODE_H <= y1
+                            )
+                                state.selected.add(n.id);
+                        }
+                    }
+                    state.rubberBand = null;
+                    render();
+                }
+            });
+
+            svg.addEventListener(
+                "wheel",
+                (e) => {
+                    e.preventDefault();
+                    const before = svgPoint(e);
+                    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+                    const next = Math.max(
+                        0.125,
+                        Math.min(3, state.zoom * factor),
+                    );
+                    state.pan.x =
+                        e.clientX -
+                        svg.getBoundingClientRect().left -
+                        before.x * next;
+                    state.pan.y =
+                        e.clientY -
+                        svg.getBoundingClientRect().top -
+                        before.y * next;
+                    state.zoom = next;
+                    render();
+                },
+                { passive: false },
+            );
+
+            function setZoom(z) {
+                z = Math.max(0.125, Math.min(3, z));
+                const cx = svg.clientWidth / 2,
+                    cy = svg.clientHeight / 2;
+                const world = {
+                    x: (cx - state.pan.x) / state.zoom,
+                    y: (cy - state.pan.y) / state.zoom,
+                };
+                state.zoom = z;
+                state.pan.x = cx - world.x * z;
+                state.pan.y = cy - world.y * z;
+                render();
+            }
+
+            document.getElementById("zoomIn").onclick = () =>
+                setZoom(state.zoom * 1.2);
+            document.getElementById("zoomOut").onclick = () =>
+                setZoom(state.zoom / 1.2);
+            document.getElementById("zoomReset").onclick = () => setZoom(1);
+
+            document.getElementById("fitBtn").onclick = () => {
+                if (!state.nodes.length) {
+                    state.pan = { x: 0, y: 0 };
+                    state.zoom = 1;
+                    render();
+                    return;
+                }
+                const minX = Math.min(...state.nodes.map((n) => n.x));
+                const minY = Math.min(...state.nodes.map((n) => n.y));
+                const maxX = Math.max(...state.nodes.map((n) => n.x + NODE_W));
+                const maxY = Math.max(...state.nodes.map((n) => n.y + NODE_H));
+                const w = maxX - minX + 100,
+                    h = maxY - minY + 100;
+                state.zoom = Math.max(
+                    0.125,
+                    Math.min(
+                        2.5,
+                        Math.min(svg.clientWidth / w, svg.clientHeight / h),
+                    ),
+                );
+                state.pan.x =
+                    svg.clientWidth / 2 - ((minX + maxX) / 2) * state.zoom;
+                state.pan.y =
+                    svg.clientHeight / 2 - ((minY + maxY) / 2) * state.zoom;
+                render();
+            };
+
+            document.querySelectorAll("[data-add]").forEach((btn) => {
+                btn.onclick = () => addNode(btn.dataset.add);
+            });
+
+            document.getElementById("selectTool").onclick = () => {
+                state.tool = "select";
+                state.connecting = null;
+                render();
+            };
+            document.getElementById("wireTool").onclick = () => {
+                state.tool = "wire";
+                render();
+            };
+
+            document.getElementById("deleteBtn").onclick = () => {
+                const ids = new Set(state.selected);
+                if (state.selectedWire) {
+                    state.wires = state.wires.filter(
+                        (w) => w.id !== state.selectedWire,
+                    );
+                    state.selectedWire = null;
+                }
+                if (ids.size) {
+                    state.nodes = state.nodes.filter((n) => !ids.has(n.id));
+                    state.wires = state.wires.filter(
+                        (w) => !ids.has(w.from) && !ids.has(w.to),
+                    );
+                    state.selected.clear();
+                }
+                render();
+            };
+
+            function beginRename(n) {
+                const s = worldToScreen({ x: n.x + NODE_W / 2, y: n.y + 12 });
+                const wr = workspace.getBoundingClientRect();
+                inlineLabel.style.left = s.x - wr.left - 55 + "px";
+                inlineLabel.style.top = s.y - wr.top + "px";
+                inlineLabel.style.display = "block";
+                inlineLabel.value = n.label;
+                inlineLabel.focus();
+                inlineLabel.select();
+                inlineLabel.onblur = () => {
+                    n.label = inlineLabel.value.trim() || n.label;
+                    inlineLabel.style.display = "none";
+                    render();
+                };
+            }
+
+            document.getElementById("saveComponent").onclick = () => {
+                if (!state.selected.size) {
+                    alert("Select the nodes that make up the component first.");
+                    return;
+                }
+                document.getElementById("componentName").value = "";
+                document.getElementById("nameDialog").showModal();
+                setTimeout(
+                    () => document.getElementById("componentName").focus(),
+                    50,
+                );
+            };
+
+            document
+                .getElementById("nameForm")
+                .addEventListener("submit", (e) => {
+                    e.preventDefault();
+                    const name = document
+                        .getElementById("componentName")
+                        .value.trim();
+                    if (!name) return;
+
+                    const ids = new Set(state.selected);
+                    const chosen = state.nodes.filter((n) => ids.has(n.id));
+                    if (!chosen.length) return;
+
+                    const minX = Math.min(...chosen.map((n) => n.x));
+                    const minY = Math.min(...chosen.map((n) => n.y));
+
+                    const comp = {
+                        id: uid("comp"),
+                        name,
+                        nodes: chosen.map((n) => ({
+                            type: n.type,
+                            x: n.x - minX,
+                            y: n.y - minY,
+                            label: n.label,
+                            value: n.value,
+                        })),
+                        wires: state.wires
+                            .filter((w) => ids.has(w.from) && ids.has(w.to))
+                            .map((w) => {
+                                const from = state.nodes.find(
+                                        (n) => n.id === w.from,
+                                    ),
+                                    to = state.nodes.find((n) => n.id === w.to);
+                                return {
+                                    fromIndex: chosen.indexOf(from),
+                                    toIndex: chosen.indexOf(to),
+                                    input: w.input,
+                                };
+                            }),
+                    };
+
+                    state.components.push(comp);
+                    persist();
+                    renderComponents();
+                    document.getElementById("nameDialog").close();
+                });
+
+            function placeComponent(comp, pos) {
+                const p = pos || state.mouseWorld || { x: 200, y: 150 };
+                const created = [];
+
+                // Create the component's nodes first, keeping their exact index mapping.
+                for (const cn of comp.nodes) {
+                    created.push(
+                        makeNode(cn.type, p.x + cn.x, p.y + cn.y, {
+                            label: cn.label,
+                            value: cn.value,
+                        }),
+                    );
+                }
+
+                // Recreate only the component's internal connections.
+                for (const w of comp.wires) {
+                    const a = created[w.fromIndex],
+                        b = created[w.toIndex];
+                    if (a && b) {
+                        state.wires.push({
+                            id: uid("wire"),
+                            from: a.id,
+                            to: b.id,
+                            input: w.input,
+                        });
+                    }
+                }
+
+                state.selected.clear();
+                created.forEach((n) => state.selected.add(n.id));
+                render();
+            }
+
+            function renderComponents() {
+                const bar = document.getElementById("componentBar");
+                bar.innerHTML = "";
+                if (!state.components.length) {
+                    const empty = document.createElement("div");
+                    empty.className = "hint";
+                    empty.textContent = "No custom components saved.";
+                    bar.appendChild(empty);
+                    return;
+                }
+                for (const comp of state.components) {
+                    const b = document.createElement("button");
+                    b.className = "paletteItem componentBtn";
+                    b.innerHTML = `<strong>${escapeHtml(comp.name)}</strong><small>${comp.nodes.length} nodes · ${comp.wires.length} wires</small>`;
+                    b.onclick = () => placeComponent(comp);
+                    bar.appendChild(b);
+                }
+            }
+
+            function escapeHtml(s) {
+                return s.replace(
+                    /[&<>"']/g,
+                    (c) =>
+                        ({
+                            "&": "&amp;",
+                            "<": "&lt;",
+                            ">": "&gt;",
+                            '"': "&quot;",
+                            "'": "&#39;",
+                        })[c],
+                );
+            }
+
+            function serialise() {
+                return JSON.stringify(
+                    {
+                        version: 2,
+                        nodes: state.nodes,
+                        wires: state.wires,
+                        components: state.components,
+                        pan: state.pan,
+                        zoom: state.zoom,
+                    },
+                    null,
+                    2,
+                );
+            }
+
+            function applySerialised(obj) {
+                state.nodes = Array.isArray(obj.nodes) ? obj.nodes : [];
+                state.wires = Array.isArray(obj.wires) ? obj.wires : [];
+                state.components = Array.isArray(obj.components)
+                    ? obj.components
+                    : [];
+                state.pan = obj.pan || { x: 0, y: 0 };
+                state.zoom = obj.zoom || 1;
+                state.selected.clear();
+                state.selectedWire = null;
+                renderComponents();
+                render();
+            }
+
+            function persist() {
+                localStorage.setItem("logic-editor-state", serialise());
+            }
+
+            document.getElementById("saveLocal").onclick = () => {
+                persist();
+                alert("Saved to this browser.");
+            };
+
+            document.getElementById("loadLocal").onclick = () => {
+                const raw = localStorage.getItem("logic-editor-state");
+                if (!raw) {
+                    alert("No saved circuit in this browser.");
+                    return;
+                }
+                applySerialised(JSON.parse(raw));
+            };
+
+            document.getElementById("exportBtn").onclick = () => {
+                const blob = new Blob([serialise()], {
+                    type: "application/json",
+                });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "logic-circuit.json";
+                a.click();
+                URL.revokeObjectURL(a.href);
+            };
+
+            document.getElementById("importBtn").onclick = () => {
+                document.getElementById("fileInput").click();
+            };
+
+            document.getElementById("fileInput").onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        applySerialised(JSON.parse(reader.result));
+                    } catch (err) {
+                        alert("Invalid circuit JSON.");
+                    }
+                };
+                reader.readAsText(file);
+            };
+
+            window.addEventListener("keydown", (e) => {
+                if (e.key === "Delete" || e.key === "Backspace") {
+                    if (document.activeElement === inlineLabel) return;
+                    document.getElementById("deleteBtn").click();
+                }
+                if (e.key === "Escape") {
+                    state.connecting = null;
+                    state.rubberBand = null;
+                    render();
+                }
+                if (e.key === " ") {
+                    e.preventDefault();
+                }
+            });
+
+            window.addEventListener("keyup", (e) => {
+                if (e.key === " " && state.isPanning) {
+                    state.isPanning = false;
+                    svg.classList.remove("panning");
+                }
+            });
+
+            svg.addEventListener("dblclick", (e) => {
+                const p = svgPoint(e);
+                const n = state.nodes.find(
+                    (n) =>
+                        p.x >= n.x &&
+                        p.x <= n.x + NODE_W &&
+                        p.y >= n.y &&
+                        p.y <= n.y + NODE_H,
+                );
+                if (n && (n.type === "INPUT" || n.type === "OUTPUT"))
+                    beginRename(n);
+            });
+
+            renderComponents();
+            render();
+        </script>
+    </body>
+</html>
