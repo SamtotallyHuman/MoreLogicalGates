@@ -215,12 +215,8 @@
             }
 
             .node .ioValueText {
-                font-size: 12px;
-                font-weight: 800;
-                fill: var(--ioValueText);
                 text-anchor: middle;
                 dominant-baseline: middle;
-                pointer-events: none;
             }
 
             .ioValueText {
@@ -308,6 +304,8 @@
                 fill: #fff;
                 opacity: 0.92;
                 rx: 4;
+				stroke: #26343f;
+				stroke-width: 1px;
             }
             .textInput {
                 position: absolute;
@@ -534,7 +532,7 @@
             const NODE_H = 50;
             const COMPONENT_W = 150;
             const GRID = 12.5;
-			const PORT_LABEL_MARGIN = 25;
+            const PORT_LABEL_MARGIN = 25;
 
             const gateInputs = { AND: 2, OR: 2, NOT: 1, INPUT: 0, OUTPUT: 1 };
             const gateOutputs = { AND: 1, OR: 1, NOT: 1, INPUT: 1, OUTPUT: 0 };
@@ -1189,7 +1187,7 @@
                         const valueText = appendText(
                             g,
                             displayValue(n.value),
-                            labelW + valueW / 2,
+                            labelW + valueW * 0.42,
                             h / 2,
                             "ioValueText",
                         );
@@ -1863,7 +1861,6 @@
             }
             document.getElementById("saveLocal").onclick = () => {
                 persist();
-                alert("Saved to this browser.");
             };
             document.getElementById("loadLocal").onclick = () => {
                 const raw = localStorage.getItem("logic-editor-state");
@@ -1900,6 +1897,12 @@
             };
 
             window.addEventListener("keydown", (e) => {
+				if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+					e.preventDefault();
+					document.getElementById("saveLocal").click();
+					return;
+				}
+
                 if (e.key === "Delete" || e.key === "Backspace") {
                     if (
                         document.activeElement === inlineLabel ||
