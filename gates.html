@@ -18,6 +18,11 @@
                 --grid: #dfe5ea;
                 --gridMajor: #c7d0d8;
                 --danger: #b84a4a;
+                --ioLabel: #34576d;
+                --ioLabelBg: #161819;
+                --ioValueBg: #dbeaf0;
+                --ioValueStroke: #171717;
+                --ioValueText: #173544;
             }
             * {
                 box-sizing: border-box;
@@ -199,10 +204,82 @@
                 pointer-events: none;
                 text-anchor: middle;
             }
+
+            .node .ioLabelText {
+                font-size: 12px;
+                font-weight: 750;
+                fill: #eaf5f8;
+                text-anchor: middle;
+                dominant-baseline: middle;
+                pointer-events: none;
+            }
+
+            .node .ioValueText {
+                font-size: 12px;
+                font-weight: 800;
+                fill: var(--ioValueText);
+                text-anchor: middle;
+                dominant-baseline: middle;
+                pointer-events: none;
+            }
+
+            .ioValueText {
+                font-size: 12px;
+                font-weight: 800;
+                fill: var(--ioValueText);
+                text-anchor: middle;
+                pointer-events: none;
+            }
+
+            .ioValuePart {
+                fill: var(--ioValueBg);
+                stroke: var(--ioValueStroke);
+                stroke-width: 1;
+                cursor: pointer;
+            }
+
+            .ioValuePart:hover {
+                filter: brightness(0.9);
+            }
+
+            .ioValuePart.readonly {
+                cursor: default;
+            }
+
+            .componentPortLabel {
+                font-size: 11px;
+                font-weight: 700;
+                fill: #34576d;
+                pointer-events: none;
+                dominant-baseline: middle;
+            }
+
+            .inputLabel {
+                text-anchor: start;
+            }
+
+            .outputLabel {
+                text-anchor: end;
+            }
+
             .node .subtext {
                 font-size: 10px;
                 fill: #bed0dc;
             }
+            .componentTitle {
+                font-size: 12px;
+                font-weight: 700;
+                fill: #fff;
+                text-anchor: middle;
+                pointer-events: none;
+            }
+            .portLabel {
+                font-size: 10px;
+                fill: #26343f;
+                font-weight: 600;
+                pointer-events: none;
+            }
+
             .port {
                 fill: #fff;
                 stroke: #1b252c;
@@ -236,11 +313,51 @@
                 position: absolute;
                 display: none;
                 z-index: 30;
-                background: #fff;
-                border: 1px solid #799;
-                border-radius: 5px;
+                width: 62px;
+                height: 28px;
+                background: #f7fbfd;
+                border: 2px solid var(--accent);
+                border-radius: 7px;
                 padding: 4px 7px;
-                font: 12px Arial;
+                color: #18323f;
+                text-align: center;
+                font:
+                    700 12px Inter,
+                    system-ui,
+                    sans-serif;
+                box-shadow: 0 5px 18px rgba(24, 51, 64, 0.22);
+                outline: none;
+            }
+
+            .valuePickerOptions {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+                margin-top: 12px;
+            }
+
+            .valueOption {
+                min-height: 48px;
+                border: 1px solid #6f8ea1;
+                background: #2d495d;
+                color: #eff7fa;
+                border-radius: 9px;
+                font-weight: 750;
+                text-align: center;
+                padding: 8px;
+            }
+
+            .valueOption:hover,
+            .valueOption:focus-visible {
+                outline: 2px solid var(--accent);
+                background: #3b6177;
+            }
+
+            .dialogMuted {
+                color: #b8c9d3;
+                font-size: 12px;
+                line-height: 1.4;
+                margin: 0;
             }
             #componentBar {
                 display: flex;
@@ -296,8 +413,6 @@
             <div id="toolbar">
                 <div class="toolGroup">
                     <div class="title">Logic Editor</div>
-                    <button id="selectTool" class="active">Select</button>
-                    <button id="wireTool">Wire</button>
                 </div>
                 <div class="toolGroup">
                     <button data-add="AND">AND</button>
@@ -329,18 +444,7 @@
             <div id="main">
                 <aside id="palette">
                     <h3>Components</h3>
-                    <div class="hint">
-                        Drag or click an item to place it. Custom components are
-                        saved here and can be reused.
-                    </div>
                     <div id="componentBar"></div>
-                    <h3>Shortcuts</h3>
-                    <div class="hint">
-                        Drag nodes to move. Middle mouse / Space + drag pans.<br />
-                        Wheel zooms around the cursor.<br />
-                        Drag from an output port to an input port to connect.<br />
-                        Shift-click nodes to multi-select.
-                    </div>
                 </aside>
 
                 <section id="workspace">
@@ -376,6 +480,21 @@
             </form>
         </dialog>
 
+        <dialog id="valueDialog">
+            <form method="dialog" id="valueForm">
+                <h3 id="valueDialogTitle" style="margin: 0 0 6px">
+                    Select input value
+                </h3>
+                <p id="valueDialogHint" class="dialogMuted">
+                    Choose the value for this input.
+                </p>
+                <div id="valuePickerOptions" class="valuePickerOptions"></div>
+                <div class="row">
+                    <button value="cancel">Cancel</button>
+                </div>
+            </form>
+        </dialog>
+
         <input
             type="file"
             id="fileInput"
@@ -388,6 +507,9 @@
             const workspace = document.getElementById("workspace");
             const statusEl = document.getElementById("status");
             const inlineLabel = document.getElementById("inlineLabel");
+            const valueDialog = document.getElementById("valueDialog");
+            const valuePickerOptions =
+                document.getElementById("valuePickerOptions");
 
             const state = {
                 nodes: [],
@@ -404,19 +526,124 @@
                 panStart: null,
                 drag: null,
                 rubberBand: null,
+                valuePickerNodeId: null,
             };
 
             const NODE_W = 75;
+            const IO_NODE_W = 125;
             const NODE_H = 50;
+            const COMPONENT_W = 150;
             const GRID = 12.5;
+			const PORT_LABEL_MARGIN = 25;
 
-            const gateInputs = {
-                AND: 2,
-                OR: 2,
-                NOT: 1,
-                INPUT: 0,
-                OUTPUT: 1,
+            const gateInputs = { AND: 2, OR: 2, NOT: 1, INPUT: 0, OUTPUT: 1 };
+            const gateOutputs = { AND: 1, OR: 1, NOT: 1, INPUT: 1, OUTPUT: 0 };
+
+            /*
+             * All circuit values are opaque to the editor. To change the circuit
+             * from bits to another value domain, replace this object rather than
+             * rewriting rendering, persistence, wiring, or simulation.
+             */
+            const valueBehaviour = {
+                defaultValue: 0,
+
+                normalise(value) {
+                    return value === 1 ? 1 : 0;
+                },
+
+                clone(value) {
+                    return value;
+                },
+
+                equals(a, b) {
+                    return Object.is(a, b);
+                },
+
+                display(value) {
+                    return String(value);
+                },
+
+                isActive(value) {
+                    return value !== 0;
+                },
+
+                options() {
+                    return [
+                        { value: 0, label: "0" },
+                        { value: 1, label: "1" },
+                    ];
+                },
+
+                and(values) {
+                    return values.length
+                        ? values.reduce(
+                              (acc, value) => (acc && value ? 1 : 0),
+                              1,
+                          )
+                        : 0;
+                },
+
+                or(values) {
+                    return values.some((value) => value !== 0) ? 1 : 0;
+                },
+
+                not(value) {
+                    return value === 0 ? 1 : 0;
+                },
+
+                passthrough(value) {
+                    return value;
+                },
+
+                defaultOutput() {
+                    return this.defaultValue;
+                },
             };
+
+            function valueDefault() {
+                return valueBehaviour.clone(valueBehaviour.defaultValue);
+            }
+
+            function normaliseValue(value) {
+                return valueBehaviour.normalise(value);
+            }
+
+            function displayValue(value) {
+                return value + "";
+            }
+
+            function sameValue(a, b) {
+                return valueBehaviour.equals(a, b);
+            }
+
+            function displayValue(value) {
+                return valueBehaviour.display(value);
+            }
+
+            function sourceValue(node, output = 0) {
+                if (!node) return valueDefault();
+                if (isComponent(node))
+                    return valueBehaviour.clone(
+                        (node._runtimeOutputs || [valueDefault()])[output] ??
+                            valueDefault(),
+                    );
+                return valueBehaviour.clone(node.value ?? valueDefault());
+            }
+
+            function evaluateGate(type, inputs) {
+                switch (type) {
+                    case "AND":
+                        return valueBehaviour.and(inputs);
+                    case "OR":
+                        return valueBehaviour.or(inputs);
+                    case "NOT":
+                        return valueBehaviour.not(inputs[0] ?? valueDefault());
+                    default:
+                        return valueBehaviour.passthrough(
+                            inputs[0] ?? valueDefault(),
+                        );
+                }
+            }
 
             function uid(prefix = "id") {
                 return (
@@ -427,19 +654,63 @@
                     Date.now().toString(36)
                 );
             }
-
             function snap(v) {
                 return Math.round(v / GRID) * GRID;
             }
-
-            function nodeInputY(node, index) {
-                const n = gateInputs[node.type];
-                if (n <= 1) return node.y + NODE_H / 2;
-                return node.y + 15 + index * ((NODE_H - 30) / (n - 1));
+            function componentById(id) {
+                return state.components.find((c) => c.id === id);
+            }
+            function nodeById(id) {
+                return state.nodes.find((n) => n.id === id);
+            }
+            function isComponent(n) {
+                return n && n.type === "COMPONENT";
+            }
+            function inputCount(n) {
+                return isComponent(n)
+                    ? ((componentById(n.componentId) || {}).inputLabels || [])
+                          .length
+                    : gateInputs[n.type] || 0;
+            }
+            function outputCount(n) {
+                return isComponent(n)
+                    ? ((componentById(n.componentId) || {}).outputLabels || [])
+                          .length
+                    : gateOutputs[n.type] || 0;
+            }
+            function nodeHeight(n) {
+                const count = Math.max(inputCount(n), outputCount(n));
+                return Math.max(NODE_H, 25 + Math.max(0, count - 1) * 25);
+            }
+            function nodeWidth(n) {
+                if (n.type === "INPUT" || n.type === "OUTPUT") return IO_NODE_W;
+                return isComponent(n) ? COMPONENT_W : NODE_W;
             }
 
-            function nodeOutput(node) {
-                return { x: node.x + NODE_W, y: node.y + NODE_H / 2 };
+            function ioLabelWidth(n) {
+                return Math.round(nodeWidth(n) * 0.55);
+            }
+
+            function ioValueWidth(n) {
+                return nodeWidth(n) - ioLabelWidth(n);
+            }
+            function portY(n, index, count) {
+                if (count <= 1) return n.y + nodeHeight(n) / 2;
+                const pad = 12.5,
+                    h = nodeHeight(n) - 2 * pad;
+                return n.y + pad + index * (h / (count - 1));
+            }
+            function nodeInputY(n, index) {
+                return portY(n, index, inputCount(n));
+            }
+            function nodeOutputY(n, index) {
+                return portY(n, index, outputCount(n));
+            }
+            function nodeInput(n, index) {
+                return { x: n.x, y: nodeInputY(n, index) };
+            }
+            function nodeOutput(n, index = 0) {
+                return { x: n.x + nodeWidth(n), y: nodeOutputY(n, index) };
             }
 
             function svgPoint(evt) {
@@ -449,7 +720,6 @@
                     y: (evt.clientY - r.top - state.pan.y) / state.zoom,
                 };
             }
-
             function worldToScreen(p) {
                 return {
                     x: p.x * state.zoom + state.pan.x,
@@ -457,27 +727,21 @@
                 };
             }
 
-            function gateColor(type) {
-                if (type === "INPUT") return "#2d6979";
-                if (type === "OUTPUT") return "#6b5169";
-                if (type === "NOT") return "#14677a";
-                return "#353229";
-            }
-
-            function gateShape(type) {
+            function gateShape(type, w, h) {
                 if (type === "INPUT" || type === "OUTPUT" || type === "NOT") {
-                    return `M 0 0 H ${NODE_W - 16} L ${NODE_W} ${NODE_H / 2} L ${NODE_W - 16} ${NODE_H} H 0 Z`;
+                    return `M 0 0 H ${w - 16} L ${w} ${h / 2} L ${w - 16} ${h} H 0 Z`;
                 }
                 if (type === "OR") {
-                    return `M 0 0
-                C 28 0, 55 8, ${NODE_W} ${NODE_H / 2}
-                C 55 ${NODE_H - 8}, 28 ${NODE_H}, 0 ${NODE_H}
-                C 17 ${NODE_H - 10}, 17 10, 0 0 Z`;
+                    return `M 0 0 C 28 0, 55 ${Math.max(8, h * 0.16)}, ${w} ${h / 2}
+        C 55 ${h - Math.max(8, h * 0.16)}, 28 ${h}, 0 ${h}
+        C 17 ${h - 10}, 17 10, 0 0 Z`;
                 }
-                return `M 0 0 H ${NODE_W / 2}
-             C ${NODE_W - 4} 0, ${NODE_W} 11, ${NODE_W} ${NODE_H / 2}
-             C ${NODE_W} ${NODE_H - 11}, ${NODE_W - 4} ${NODE_H}, ${NODE_W / 2} ${NODE_H}
-             H 0 Z`;
+                if (type === "AND") {
+                    return `M 0 0 H ${w / 2} C ${w - 4} 0, ${w} 11, ${w} ${h / 2}
+        C ${w} ${h - 11}, ${w - 4} ${h}, ${w / 2} ${h} H 0 Z`;
+                }
+                return `M 7 0 H ${w - 7} Q ${w} 0 ${w} 7 V ${h - 7} Q ${w} ${h} ${w - 7} ${h}
+        H 7 Q 0 ${h} 0 ${h - 7} V 7 Q 0 0 7 0 Z`;
             }
 
             function makeNode(type, x, y, extra = {}) {
@@ -492,171 +756,315 @@
                             : type === "OUTPUT"
                               ? "OUT"
                               : type,
-                    value: false,
+                    value: valueDefault(),
                     ...extra,
                 };
                 state.nodes.push(n);
                 return n;
             }
-
             function addNode(type, pos = null) {
-                const p = pos || state.mouseWorld || { x: 150, y: 150 };
-                const n = makeNode(type, p.x - NODE_W / 2, p.y - NODE_H / 2);
+                const p = pos || {
+                    x: (svg.clientWidth / 2 - state.pan.x) / state.zoom,
+                    y: (svg.clientHeight / 2 - state.pan.y) / state.zoom,
+                };
+                const temp = { type };
+                const n = makeNode(
+                    type,
+                    p.x - nodeWidth(temp) / 2,
+                    p.y - nodeHeight(temp) / 2,
+                );
                 state.selected.clear();
                 state.selected.add(n.id);
                 render();
-                if (type === "INPUT" || type === "OUTPUT") beginRename(n);
+                //if (type === "INPUT" || type === "OUTPUT") beginRename(n);
                 return n;
             }
 
-            function nodeById(id) {
-                return state.nodes.find((n) => n.id === id);
-            }
-
-            function pathForWire(fromNode, toNode, inputIndex) {
-                const a = nodeOutput(fromNode);
-                const b = { x: toNode.x, y: nodeInputY(toNode, inputIndex) };
+            function pathForWire(
+                fromNode,
+                toNode,
+                inputIndex,
+                outputIndex = 0,
+            ) {
+                const a = nodeOutput(fromNode, outputIndex),
+                    b = nodeInput(toNode, inputIndex);
                 const dx = Math.max(35, (b.x - a.x) * 0.5);
                 return `M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x} ${b.y}`;
             }
+            /* Simulation of a saved custom component. Its selected INPUT/OUTPUT nodes
+               define the external interface; all other selected nodes remain internal. */
+            function simulateComponent(comp, externalInputs, stack = []) {
+                if (!comp || stack.includes(comp.id))
+                    return (comp?.outputLabels || []).map(() => valueDefault());
 
-            function evaluateGate(type, inputs) {
-                switch (type) {
-                    case "AND":
-                        return inputs.every(Boolean);
-                    case "OR":
-                        return inputs.some(Boolean);
-                    case "NOT":
-                        return !inputs[0];
-                    default:
-                        return Boolean(inputs[0]);
-                }
-            }
+                const nodes = (comp.nodes || []).map((n, i) => ({
+                    ...n,
+                    _i: i,
+                    value: valueDefault(),
+                }));
+                const vals = {};
+                const inNodes = nodes.filter((n) => n.type === "INPUT");
 
-            function recompute() {
-                // Inputs are source nodes. Propagate repeatedly so arbitrary acyclic circuits settle.
-                for (let pass = 0; pass < state.nodes.length + 2; pass++) {
+                inNodes.forEach((n, i) => {
+                    vals[n._i] = normaliseValue(
+                        externalInputs[i] ?? valueDefault(),
+                    );
+                    n.value = vals[n._i];
+                });
+
+                for (const n of nodes)
+                    if (n.type !== "INPUT") vals[n._i] = valueDefault();
+
+                for (let pass = 0; pass < nodes.length * 4 + 4; pass++) {
                     let changed = false;
-                    for (const n of state.nodes) {
+
+                    for (const n of nodes) {
                         if (n.type === "INPUT") continue;
+
                         const ins = Array.from(
-                            { length: gateInputs[n.type] },
-                            () => false,
+                            { length: gateInputs[n.type] || 0 },
+                            () => valueDefault(),
                         );
-                        for (const w of state.wires) {
-                            if (w.to === n.id && w.input < ins.length) {
-                                const src = nodeById(w.from);
-                                if (src) ins[w.input] = !!src.value;
+
+                        for (const w of comp.wires || []) {
+                            if (w.toIndex === n._i && w.input < ins.length) {
+                                const src = nodes[w.fromIndex];
+                                if (src)
+                                    ins[w.input] = sourceValue(
+                                        src,
+                                        w.output || 0,
+                                    );
                             }
                         }
-                        const next =
-                            n.type === "OUTPUT"
-                                ? !!ins[0]
-                                : evaluateGate(n.type, ins);
-                        if (next !== n.value) {
-                            n.value = next;
+
+                        let next;
+
+                        if (n.type === "OUTPUT") {
+                            next = valueBehaviour.passthrough(
+                                ins[0] ?? valueDefault(),
+                            );
+                        } else if (n.type === "COMPONENT") {
+                            const child = componentById(n.componentId);
+                            const childIn = ins.slice(
+                                0,
+                                (child?.inputLabels || []).length,
+                            );
+                            const childOut = simulateComponent(
+                                child,
+                                childIn,
+                                stack.concat(comp.id),
+                            );
+                            n._outputs = childOut.map((value) =>
+                                valueBehaviour.clone(value),
+                            );
+                            next = childOut[0] ?? valueDefault();
+                        } else {
+                            next = evaluateGate(n.type, ins);
+                        }
+
+                        if (n.type === "COMPONENT") {
+                            const outs = n._outputs || [];
+                            const old = n._outCache || [];
+                            if (
+                                outs.length !== old.length ||
+                                outs.some(
+                                    (value, i) => !sameValue(value, old[i]),
+                                )
+                            ) {
+                                changed = true;
+                            }
+                            n._outCache = outs.map((value) =>
+                                valueBehaviour.clone(value),
+                            );
+                        }
+
+                        if (!sameValue(next, vals[n._i])) {
+                            vals[n._i] = valueBehaviour.clone(next);
+                            n.value = valueBehaviour.clone(next);
                             changed = true;
                         }
                     }
+
+                    if (!changed) break;
+                }
+
+                return (comp.outputLabels || []).map((_, i) => {
+                    const out = nodes.filter((n) => n.type === "OUTPUT")[i];
+                    return out
+                        ? valueBehaviour.clone(vals[out._i] ?? valueDefault())
+                        : valueDefault();
+                });
+            }
+
+            function recompute() {
+                for (const n of state.nodes) {
+                    if (n.type !== "INPUT") n.value = valueDefault();
+                    else n.value = normaliseValue(n.value);
+                    if (isComponent(n)) n._runtimeOutputs = [];
+                }
+
+                for (let pass = 0; pass < state.nodes.length + 4; pass++) {
+                    let changed = false;
+
+                    for (const n of state.nodes) {
+                        if (n.type === "INPUT") continue;
+
+                        const ins = Array.from({ length: inputCount(n) }, () =>
+                            valueDefault(),
+                        );
+
+                        for (const w of state.wires) {
+                            if (w.to === n.id && w.input < ins.length) {
+                                const src = nodeById(w.from);
+                                if (src)
+                                    ins[w.input] = sourceValue(
+                                        src,
+                                        w.output || 0,
+                                    );
+                            }
+                        }
+
+                        if (isComponent(n)) {
+                            const comp = componentById(n.componentId);
+                            const outs = simulateComponent(comp, ins);
+                            const previous = n._runtimeOutputs || [];
+                            if (
+                                outs.length !== previous.length ||
+                                outs.some(
+                                    (value, i) =>
+                                        !sameValue(value, previous[i]),
+                                )
+                            ) {
+                                changed = true;
+                            }
+                            n._runtimeOutputs = outs.map((value) =>
+                                valueBehaviour.clone(value),
+                            );
+
+                            const next = outs[0] ?? valueDefault();
+                            if (!sameValue(next, n.value)) {
+                                n.value = valueBehaviour.clone(next);
+                                changed = true;
+                            }
+                        } else {
+                            const next =
+                                n.type === "OUTPUT"
+                                    ? valueBehaviour.passthrough(
+                                          ins[0] ?? valueDefault(),
+                                      )
+                                    : evaluateGate(n.type, ins);
+
+                            if (!sameValue(next, n.value)) {
+                                n.value = valueBehaviour.clone(next);
+                                changed = true;
+                            }
+                        }
+                    }
+
                     if (!changed) break;
                 }
             }
 
-            function valueToString(value) {
-                return value ? "1" : "0";
-            }
-
             function wireValue(w) {
-                return nodeById(w.from).value;
+                return sourceValue(nodeById(w.from), w.output || 0);
             }
 
-			function valueToNumber(value) {
-				return value ? 1 : 0;
-			}
+            function wireColour(w) {
+                const a = [98, 104, 110],
+                    b = [32, 40, 48],
+                    t = wireValue(w);
+                const rgb = a.map((x, i) => Math.round(x + (b[i] - x) * t));
+                return (
+                    "#" +
+                    rgb.map((x) => x.toString(16).padStart(2, "0")).join("")
+                );
+            }
 
-			function wireColour(w) {
-				const hex1 = "#62686E";
-				const hex2 = "#202830";
+            function inputIoColour(nodeValue) {
+                const t = Number(nodeValue);
 
-				const a = hex1.match(/\w\w/g).map(x => parseInt(x, 16));
-				const b = hex2.match(/\w\w/g).map(x => parseInt(x, 16));
+                const a = [148, 196, 207];
+                const b = [81, 151, 167];
 
-				const rgb = a.map((x, i) => Math.round(x + (b[i] - x) * valueToNumber(wireValue(w))));
+                const rgb = a.map((x, i) => Math.round(x + (b[i] - x) * t));
 
-				return "#" + rgb.map(x => x.toString(16).padStart(2, "0")).join("");
-			}
+                return (
+                    "#" +
+                    rgb.map((x) => x.toString(16).padStart(2, "0")).join("")
+                );
+            }
+
+            function appendText(parent, text, x, y, cls = "") {
+                const t = document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    "text",
+                );
+                t.setAttribute("x", x);
+                t.setAttribute("y", y);
+                if (cls) t.setAttribute("class", cls);
+                t.textContent = text;
+                parent.appendChild(t);
+                return t;
+            }
 
             function render() {
                 recompute();
                 svg.innerHTML = "";
-
-                // background + world transform
-                const defs = document.createElementNS(
-                    "http://www.w3.org/2000/svg",
-                    "defs",
-                );
-
-                const small = document.createElementNS(
-                    "http://www.w3.org/2000/svg",
-                    "pattern",
-                );
+                const ns = "http://www.w3.org/2000/svg";
+                const defs = document.createElementNS(ns, "defs");
+                const small = document.createElementNS(ns, "pattern");
                 small.setAttribute("id", "grid");
                 small.setAttribute("width", GRID);
                 small.setAttribute("height", GRID);
                 small.setAttribute("patternUnits", "userSpaceOnUse");
-                const rect = document.createElementNS(
-                    "http://www.w3.org/2000/svg",
-                    "rect",
-                );
+                const rect = document.createElementNS(ns, "rect");
                 rect.setAttribute("width", GRID);
                 rect.setAttribute("height", GRID);
                 rect.setAttribute("fill", "#fff");
-                const line1 = document.createElementNS(
-                    "http://www.w3.org/2000/svg",
-                    "path",
-                );
-                line1.setAttribute("d", `M ${GRID} 0 L 0 0 0 ${GRID}`);
-                line1.setAttribute("fill", "none");
-                line1.setAttribute("stroke", "#e8edf1");
-                line1.setAttribute("stroke-width", "1");
-                small.append(rect, line1);
+                const line = document.createElementNS(ns, "path");
+                line.setAttribute("d", `M ${GRID} 0 L 0 0 0 ${GRID}`);
+                line.setAttribute("fill", "none");
+                line.setAttribute("stroke", "#e8edf1");
+                line.setAttribute("stroke-width", "1");
+                small.append(rect, line);
                 defs.appendChild(small);
                 svg.appendChild(defs);
+                const viewLeft = -state.pan.x / state.zoom;
+                const viewTop = -state.pan.y / state.zoom;
+                const viewRight = (svg.clientWidth - state.pan.x) / state.zoom;
+                const viewBottom =
+                    (svg.clientHeight - state.pan.y) / state.zoom;
+                const gridX = Math.floor(viewLeft / GRID) * GRID - GRID * 2;
+                const gridY = Math.floor(viewTop / GRID) * GRID - GRID * 2;
+                const gridW =
+                    Math.ceil((viewRight - gridX) / GRID) * GRID + GRID * 2;
+                const gridH =
+                    Math.ceil((viewBottom - gridY) / GRID) * GRID + GRID * 2;
 
-                const worldBg = document.createElementNS(
-                    "http://www.w3.org/2000/svg",
-                    "rect",
-                );
-                worldBg.setAttribute("width", svg.clientWidth);
-                worldBg.setAttribute("height", svg.clientHeight);
-                worldBg.setAttribute("fill", "url(#grid)");
-                worldBg.setAttribute(
+                const bg = document.createElementNS(ns, "rect");
+                bg.setAttribute("x", gridX);
+                bg.setAttribute("y", gridY);
+                bg.setAttribute("width", gridW);
+                bg.setAttribute("height", gridH);
+                bg.setAttribute("fill", "url(#grid)");
+                bg.setAttribute(
                     "transform",
                     `translate(${state.pan.x},${state.pan.y}) scale(${state.zoom})`,
                 );
-                svg.appendChild(worldBg);
-
-                const world = document.createElementNS(
-                    "http://www.w3.org/2000/svg",
-                    "g",
-                );
+                svg.appendChild(bg);
+                const world = document.createElementNS(ns, "g");
                 world.setAttribute(
                     "transform",
                     `translate(${state.pan.x},${state.pan.y}) scale(${state.zoom})`,
                 );
                 svg.appendChild(world);
 
-                // wires
                 for (const w of state.wires) {
                     const a = nodeById(w.from),
                         b = nodeById(w.to);
                     if (!a || !b) continue;
-                    const d = pathForWire(a, b, w.input);
-
-                    const hit = document.createElementNS(
-                        "http://www.w3.org/2000/svg",
-                        "path",
-                    );
+                    const d = pathForWire(a, b, w.input, w.output || 0);
+                    const hit = document.createElementNS(ns, "path");
                     hit.setAttribute("d", d);
                     hit.classList.add("wireHit");
                     hit.addEventListener("click", (e) => {
@@ -666,166 +1074,240 @@
                         render();
                     });
                     world.appendChild(hit);
-
-                    const path = document.createElementNS(
-                        "http://www.w3.org/2000/svg",
-                        "path",
-                    );
+                    const path = document.createElementNS(ns, "path");
                     path.setAttribute("d", d);
                     path.classList.add("wire");
                     if (state.selectedWire === w.id)
                         path.classList.add("selected");
-					path.style.setProperty("--wire", wireColour(w));
+                    path.style.stroke = wireColour(w);
                     world.appendChild(path);
-
-                    const t0 = nodeOutput(a);
-                    const t1 = { x: b.x, y: nodeInputY(b, w.input) };
-                    const mx = (t0.x + t1.x) / 2,
+                    const t0 = nodeOutput(a, w.output || 0),
+                        t1 = nodeInput(b, w.input),
+                        mx = (t0.x + t1.x) / 2,
                         my = (t0.y + t1.y) / 2;
-                    const label = valueToString(wireValue(w));
-                    if (label) {
-                        const txt = document.createElementNS(
-                            "http://www.w3.org/2000/svg",
-                            "text",
-                        );
-                        txt.setAttribute("x", mx);
-                        txt.setAttribute("y", my + 3.5);
-                        txt.setAttribute("class", "wireLabel");
-                        txt.textContent = label;
-                        world.appendChild(txt);
-                        const bb = txt.getBBox();
-                        const bg = document.createElementNS(
-                            "http://www.w3.org/2000/svg",
-                            "rect",
-                        );
-                        bg.setAttribute("x", bb.x - 2.5);
-                        bg.setAttribute("y", bb.y);
-                        bg.setAttribute("width", bb.width + 5);
-                        bg.setAttribute("height", bb.height);
-                        bg.setAttribute("class", "wireLabelBg");
-                        world.appendChild(bg);
-                        txt.remove();
-                        world.appendChild(txt);
-                    }
-                }
-
-                // temporary connection wire
-                if (state.connecting) {
-                    const n = nodeById(state.connecting.nodeId);
-                    if (n) {
-                        const a = nodeOutput(n),
-                            b = state.mouseWorld;
-                        const path = document.createElementNS(
-                            "http://www.w3.org/2000/svg",
-                            "path",
-                        );
-                        path.setAttribute(
-                            "d",
-                            `M ${a.x} ${a.y} C ${(a.x + b.x) / 2} ${a.y}, ${(a.x + b.x) / 2} ${b.y}, ${b.x} ${b.y}`,
-                        );
-                        path.classList.add("wire", "selected");
-                        path.setAttribute("stroke-dasharray", "7 5");
-                        world.appendChild(path);
-                    }
-                }
-
-                // nodes
-                for (const n of state.nodes) {
-                    const g = document.createElementNS(
-                        "http://www.w3.org/2000/svg",
-                        "g",
+                    const txt = appendText(
+                        world,
+                        displayValue(wireValue(w)),
+                        mx,
+                        my + 3.5,
+                        "wireLabel",
                     );
+                    const bb = txt.getBBox();
+                    const bg2 = document.createElementNS(ns, "rect");
+                    bg2.setAttribute("x", bb.x - 2.5);
+                    bg2.setAttribute("y", bb.y);
+                    bg2.setAttribute("width", bb.width + 5);
+                    bg2.setAttribute("height", bb.height);
+                    bg2.setAttribute("class", "wireLabelBg");
+                    world.appendChild(bg2);
+                    txt.remove();
+                    world.appendChild(txt);
+                }
+
+                if (state.connecting) {
+                    const n = nodeById(state.connecting.nodeId),
+                        out = nodeOutput(n, state.connecting.output || 0),
+                        b = state.mouseWorld;
+                    if (n) {
+                        const p = document.createElementNS(ns, "path");
+                        p.setAttribute(
+                            "d",
+                            `M ${out.x} ${out.y} C ${(out.x + b.x) / 2} ${out.y}, ${(out.x + b.x) / 2} ${b.y}, ${b.x} ${b.y}`,
+                        );
+                        p.classList.add("wire", "selected");
+                        p.setAttribute("stroke-dasharray", "7 5");
+                        world.appendChild(p);
+                    }
+                }
+
+                for (const n of state.nodes) {
+                    const g = document.createElementNS(ns, "g");
+                    n.displayObject = g;
                     g.classList.add("node");
                     if (state.selected.has(n.id)) g.classList.add("selected");
                     g.setAttribute("transform", `translate(${n.x},${n.y})`);
                     g.dataset.id = n.id;
-
-                    const body = document.createElementNS(
-                        "http://www.w3.org/2000/svg",
-                        "path",
-                    );
-                    body.setAttribute("d", gateShape(n.type));
-                    body.setAttribute("class", "body");
-                    body.setAttribute("fill", gateColor(n.type));
+                    const w = nodeWidth(n),
+                        h = nodeHeight(n);
+                    const body = document.createElementNS(ns, "path");
+                    body.setAttribute("d", gateShape(n.type, w, h));
+                    body.classList.add("body");
+                    body.setAttribute("fill", "#353229");
                     g.appendChild(body);
 
-                    const text = document.createElementNS(
-                        "http://www.w3.org/2000/svg",
-                        "text",
-                    );
-                    text.setAttribute("x", NODE_W / 2);
-                    text.setAttribute("y", NODE_H / 2);
-                    text.textContent =
-                        n.type === "INPUT" || n.type === "OUTPUT"
-                            ? n.label
-                            : n.type;
-                    g.appendChild(text);
+                    if (n.type === "INPUT" || n.type === "OUTPUT") {
+                        const labelW = ioLabelWidth(n);
+                        const valueW = ioValueWidth(n);
+                        const clipId = uid("ioClip");
+                        const clip = document.createElementNS(ns, "clipPath");
+                        clip.setAttribute("id", clipId);
+                        const clipPath = document.createElementNS(ns, "path");
+                        clipPath.setAttribute("d", gateShape(n.type, w, h));
+                        clip.appendChild(clipPath);
+                        defs.appendChild(clip);
 
-                    if (gateInputs[n.type] > 0) {
-                        for (let i = 0; i < gateInputs[n.type]; i++) {
-                            const c = document.createElementNS(
-                                "http://www.w3.org/2000/svg",
-                                "circle",
-                            );
-                            c.setAttribute("cx", 0);
-                            c.setAttribute("cy", nodeInputY(n, i) - n.y);
-                            c.setAttribute("r", 5);
-                            c.classList.add("port");
-                            if (
-                                state.wires.some(
-                                    (w) => w.to === n.id && w.input === i,
-                                )
-                            )
-                                c.classList.add("connected");
-                            c.addEventListener("mousedown", (e) => {
+                        const io = document.createElementNS(ns, "g");
+                        io.setAttribute("clip-path", `url(#${clipId})`);
+
+                        const labelBg = document.createElementNS(ns, "rect");
+                        labelBg.setAttribute("x", 0);
+                        labelBg.setAttribute("y", 0);
+                        labelBg.setAttribute("width", labelW);
+                        labelBg.setAttribute("height", h);
+                        labelBg.setAttribute("fill", "#353229");
+                        io.appendChild(labelBg);
+
+                        const valuePart = document.createElementNS(ns, "rect");
+                        valuePart.setAttribute("x", labelW);
+                        valuePart.setAttribute("y", 0);
+                        valuePart.setAttribute("width", valueW);
+                        valuePart.setAttribute("height", h);
+                        valuePart.classList.add("ioValuePart");
+                        if (n.type === "OUTPUT")
+                            valuePart.classList.add("readonly");
+                        valuePart.style.fill = inputIoColour(n.value);
+                        io.appendChild(valuePart);
+
+                        const divider = document.createElementNS(ns, "line");
+                        divider.setAttribute("x1", labelW);
+                        divider.setAttribute("x2", labelW);
+                        divider.setAttribute("y1", 4);
+                        divider.setAttribute("y2", h - 4);
+                        divider.classList.add("ioDivider");
+                        io.appendChild(divider);
+
+                        g.appendChild(io);
+
+                        const labelText = appendText(
+                            g,
+                            n.label,
+                            labelW / 2,
+                            h / 2,
+                            "ioLabelText",
+                        );
+
+                        const valueText = appendText(
+                            g,
+                            displayValue(n.value),
+                            labelW + valueW / 2,
+                            h / 2,
+                            "ioValueText",
+                        );
+
+                        labelText.addEventListener("dblclick", (e) => {
+                            e.stopPropagation();
+                            beginRename(n);
+                        });
+                        labelBg.addEventListener("dblclick", (e) => {
+                            e.stopPropagation();
+                            beginRename(n);
+                        });
+
+                        if (n.type === "INPUT") {
+                            valuePart.addEventListener("mousedown", (e) => {
                                 e.stopPropagation();
-                                if (state.connecting) {
-                                    connectToInput(n, i);
-                                }
                             });
-                            c.addEventListener("click", (e) =>
-                                e.stopPropagation(),
-                            );
-                            g.appendChild(c);
+                            valuePart.addEventListener("click", (e) => {
+                                e.stopPropagation();
+                                beginValuePicker(n);
+                            });
                         }
+                    } else if (n.type === "COMPONENT") {
+                        const comp = componentById(n.componentId);
+                        const ins = comp?.inputLabels || [];
+                        const outs = comp?.outputLabels || [];
+
+                        // Component name — kept in the centre/top area
+                        appendText(
+                            g,
+                            n.componentName || comp?.name || "Component",
+                            w / 2,
+                            14,
+                            "componentTitle",
+                        );
+
+                        // Input labels — inside the left edge
+                        ins.forEach((label, i) => {
+                            const t = appendText(
+                                g,
+                                label,
+                                14,
+                                nodeInputY(n, i) - n.y,
+                                "componentPortLabel inputLabel",
+                            );
+
+                            t.setAttribute("text-anchor", "start");
+                        });
+
+                        outs.forEach((label, i) => {
+                            const t = appendText(
+                                g,
+                                label,
+                                w - PORT_LABEL_MARGIN,
+                                nodeOutputY(n, i) - n.y,
+                                "componentPortLabel outputLabel",
+                            );
+
+                            t.setAttribute("text-anchor", "end");
+                        });
+                    } else {
+                        appendText(g, n.type, w / 2, h / 2 + 4, "");
                     }
 
-                    if (n.type !== "OUTPUT") {
-                        const c = document.createElementNS(
-                            "http://www.w3.org/2000/svg",
-                            "circle",
-                        );
-                        c.setAttribute("cx", NODE_W);
-                        c.setAttribute("cy", NODE_H / 2);
+                    const ic = inputCount(n);
+                    for (let i = 0; i < ic; i++) {
+                        const c = document.createElementNS(ns, "circle");
+                        c.setAttribute("cx", 0);
+                        c.setAttribute("cy", nodeInputY(n, i) - n.y);
+                        c.setAttribute("r", 5);
+                        c.classList.add("port");
+                        if (
+                            state.wires.some(
+                                (x) => x.to === n.id && x.input === i,
+                            )
+                        )
+                            c.classList.add("connected");
+                        c.addEventListener("mousedown", (e) => {
+                            e.stopPropagation();
+                            if (state.connecting) connectToInput(n, i);
+                        });
+                        c.addEventListener("click", (e) => e.stopPropagation());
+                        g.appendChild(c);
+                    }
+                    const oc = outputCount(n);
+                    for (let i = 0; i < oc; i++) {
+                        const c = document.createElementNS(ns, "circle");
+                        c.setAttribute("cx", w);
+                        c.setAttribute("cy", nodeOutputY(n, i) - n.y);
                         c.setAttribute("r", 5);
                         c.classList.add("port", "out");
                         c.addEventListener("mousedown", (e) => {
                             e.stopPropagation();
-                            startConnection(n);
+                            startConnection(n, i);
                         });
+                        c.addEventListener("click", (e) => e.stopPropagation());
                         g.appendChild(c);
                     }
 
                     if (n.type === "INPUT") {
                         g.addEventListener("dblclick", (e) => {
                             e.stopPropagation();
-                            n.value = !n.value;
-                            render();
+                            beginRename(n);
                         });
                     }
-
-                    g.addEventListener("mousedown", (e) => nodeMouseDown(e, n, g));
-
+                    if (n.type === "OUTPUT") {
+                        g.addEventListener("dblclick", (e) => {
+                            e.stopPropagation();
+                            beginRename(n);
+                        });
+                    }
+                    g.addEventListener("mousedown", (e) => nodeMouseDown(e, n));
                     world.appendChild(g);
                 }
 
-                // selection rectangle
                 if (state.rubberBand) {
-                    const r = state.rubberBand;
-                    const box = document.createElementNS(
-                        "http://www.w3.org/2000/svg",
-                        "rect",
-                    );
+                    const r = state.rubberBand,
+                        box = document.createElementNS(ns, "rect");
                     box.setAttribute("x", Math.min(r.x0, r.x1));
                     box.setAttribute("y", Math.min(r.y0, r.y1));
                     box.setAttribute("width", Math.abs(r.x1 - r.x0));
@@ -833,22 +1315,21 @@
                     box.setAttribute("id", "selectionBox");
                     world.appendChild(box);
                 }
-
                 statusEl.textContent = `Zoom ${Math.round(state.zoom * 100)}%  |  Nodes ${state.nodes.length}  |  Wires ${state.wires.length}`;
             }
 
-            function startConnection(node) {
-                if (node.type === "OUTPUT") return;
-                state.connecting = { nodeId: node.id };
+            function startConnection(node, output = 0) {
+                if (outputCount(node) <= output) return;
+                state.connecting = { nodeId: node.id, output };
                 state.tool = "wire";
                 render();
             }
-
             function connectToInput(target, inputIndex) {
-                if (!state.connecting) return;
-                const source = state.connecting.nodeId;
+                if (!state.connecting || inputIndex >= inputCount(target))
+                    return;
+                const source = state.connecting.nodeId,
+                    output = state.connecting.output || 0;
                 if (source === target.id) return;
-                // one source -> many targets is allowed, but one wire per input
                 state.wires = state.wires.filter(
                     (w) => !(w.to === target.id && w.input === inputIndex),
                 );
@@ -857,14 +1338,14 @@
                     from: source,
                     to: target.id,
                     input: inputIndex,
+                    output,
                 });
                 state.connecting = null;
                 state.selectedWire = null;
                 state.tool = "select";
                 render();
             }
-
-            function nodeMouseDown(e, n, g) {
+            function nodeMouseDown(e, n) {
                 if (e.button === 1) return; // middle handled as pan
                 e.stopPropagation();
 
@@ -872,6 +1353,9 @@
                     if (state.selected.has(n.id)) state.selected.delete(n.id);
                     else state.selected.add(n.id);
                 } else if (!state.selected.has(n.id)) {
+                    state.selected.forEach((m) =>
+                        nodeById(m).displayObject.classList.remove("selected"),
+                    );
                     state.selected.clear();
                     state.selected.add(n.id);
                 }
@@ -885,7 +1369,8 @@
                     }),
                 };
                 state.selectedWire = null;
-				if (state.selected.has(n.id)) g.classList.add("selected");
+                if (state.selected.has(n.id))
+                    n.displayObject.classList.add("selected");
                 //render();
             }
 
@@ -901,27 +1386,22 @@
                     svg.classList.add("panning");
                     return;
                 }
-
                 if (state.connecting) {
                     state.connecting = null;
                     state.tool = "select";
                     render();
                     return;
                 }
-
                 if (e.shiftKey) return;
-
                 const p = svgPoint(e);
                 state.selected.clear();
                 state.selectedWire = null;
                 state.rubberBand = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
                 render();
             });
-
             window.addEventListener("mousemove", (e) => {
                 const p = svgPoint(e);
                 state.mouseWorld = p;
-
                 if (state.isPanning) {
                     state.pan.x =
                         state.panStart.px + (e.clientX - state.panStart.x);
@@ -930,7 +1410,6 @@
                     render();
                     return;
                 }
-
                 if (state.drag) {
                     const dx = p.x - state.drag.origin.x,
                         dy = p.y - state.drag.origin.y;
@@ -942,58 +1421,51 @@
                     render();
                     return;
                 }
-
                 if (state.rubberBand) {
                     state.rubberBand.x1 = p.x;
                     state.rubberBand.y1 = p.y;
                     render();
                     return;
                 }
-
                 if (state.connecting) render();
             });
-
-            window.addEventListener("mouseup", (e) => {
+            window.addEventListener("mouseup", () => {
                 if (state.isPanning) {
                     state.isPanning = false;
                     svg.classList.remove("panning");
                 }
-                if (state.drag) {
-                    state.drag = null;
-                }
+                state.drag = null;
                 if (state.rubberBand) {
-                    const r = state.rubberBand;
-                    const x0 = Math.min(r.x0, r.x1),
-                        x1 = Math.max(r.x0, r.x1);
-                    const y0 = Math.min(r.y0, r.y1),
+                    const r = state.rubberBand,
+                        x0 = Math.min(r.x0, r.x1),
+                        x1 = Math.max(r.x0, r.x1),
+                        y0 = Math.min(r.y0, r.y1),
                         y1 = Math.max(r.y0, r.y1);
                     if (Math.abs(x1 - x0) > 5 || Math.abs(y1 - y0) > 5) {
                         state.selected.clear();
-                        for (const n of state.nodes) {
+                        for (const n of state.nodes)
                             if (
                                 n.x >= x0 &&
-                                n.x + NODE_W <= x1 &&
+                                n.x + nodeWidth(n) <= x1 &&
                                 n.y >= y0 &&
-                                n.y + NODE_H <= y1
+                                n.y + nodeHeight(n) <= y1
                             )
                                 state.selected.add(n.id);
-                        }
                     }
                     state.rubberBand = null;
                     render();
                 }
             });
-
             svg.addEventListener(
                 "wheel",
                 (e) => {
                     e.preventDefault();
-                    const before = svgPoint(e);
-                    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-                    const next = Math.max(
-                        0.125,
-                        Math.min(3, state.zoom * factor),
-                    );
+                    const before = svgPoint(e),
+                        factor = e.deltaY < 0 ? 1.1 : 1 / 1.1,
+                        next = Math.max(
+                            0.125,
+                            Math.min(3, state.zoom * factor),
+                        );
                     state.pan.x =
                         e.clientX -
                         svg.getBoundingClientRect().left -
@@ -1021,13 +1493,11 @@
                 state.pan.y = cy - world.y * z;
                 render();
             }
-
             document.getElementById("zoomIn").onclick = () =>
                 setZoom(state.zoom * 1.2);
             document.getElementById("zoomOut").onclick = () =>
                 setZoom(state.zoom / 1.2);
             document.getElementById("zoomReset").onclick = () => setZoom(1);
-
             document.getElementById("fitBtn").onclick = () => {
                 if (!state.nodes.length) {
                     state.pan = { x: 0, y: 0 };
@@ -1035,10 +1505,14 @@
                     render();
                     return;
                 }
-                const minX = Math.min(...state.nodes.map((n) => n.x));
-                const minY = Math.min(...state.nodes.map((n) => n.y));
-                const maxX = Math.max(...state.nodes.map((n) => n.x + NODE_W));
-                const maxY = Math.max(...state.nodes.map((n) => n.y + NODE_H));
+                const minX = Math.min(...state.nodes.map((n) => n.x)),
+                    minY = Math.min(...state.nodes.map((n) => n.y));
+                const maxX = Math.max(
+                        ...state.nodes.map((n) => n.x + nodeWidth(n)),
+                    ),
+                    maxY = Math.max(
+                        ...state.nodes.map((n) => n.y + nodeHeight(n)),
+                    );
                 const w = maxX - minX + 100,
                     h = maxY - minY + 100;
                 state.zoom = Math.max(
@@ -1054,20 +1528,11 @@
                     svg.clientHeight / 2 - ((minY + maxY) / 2) * state.zoom;
                 render();
             };
-
-            document.querySelectorAll("[data-add]").forEach((btn) => {
-                btn.onclick = () => addNode(btn.dataset.add);
-            });
-
-            document.getElementById("selectTool").onclick = () => {
-                state.tool = "select";
-                state.connecting = null;
-                render();
-            };
-            document.getElementById("wireTool").onclick = () => {
-                state.tool = "wire";
-                render();
-            };
+            document
+                .querySelectorAll("[data-add]")
+                .forEach(
+                    (btn) => (btn.onclick = () => addNode(btn.dataset.add)),
+                );
 
             document.getElementById("deleteBtn").onclick = () => {
                 const ids = new Set(state.selected);
@@ -1088,21 +1553,75 @@
             };
 
             function beginRename(n) {
-                const s = worldToScreen({ x: n.x + NODE_W / 2, y: n.y + 12 });
-                const wr = workspace.getBoundingClientRect();
-                inlineLabel.style.left = s.x - wr.left - 55 + "px";
-                inlineLabel.style.top = s.y - wr.top + "px";
+                const s = worldToScreen({
+                        x: n.x + ioLabelWidth(n) / 2,
+                        y: n.y + nodeHeight(n) / 2,
+                    }),
+                    wr = workspace.getBoundingClientRect(),
+                    width = Math.max(52, ioLabelWidth(n) * state.zoom - 8);
+
+                inlineLabel.style.width = `${width}px`;
+                inlineLabel.style.left = `${s.x - width / 2}px`;
+                inlineLabel.style.top = `${s.y - 14}px`;
                 inlineLabel.style.display = "block";
                 inlineLabel.value = n.label;
                 inlineLabel.focus();
                 inlineLabel.select();
-                inlineLabel.onblur = () => {
+
+                const commit = () => {
                     n.label = inlineLabel.value.trim() || n.label;
                     inlineLabel.style.display = "none";
                     render();
                 };
+
+                inlineLabel.onblur = commit;
+                inlineLabel.onkeydown = (e) => {
+                    if (e.key === "Enter") {
+                        e.preventDefault();
+                        inlineLabel.blur();
+                    }
+                    if (e.key === "Escape") {
+                        inlineLabel.value = n.label;
+                        inlineLabel.blur();
+                    }
+                };
             }
 
+            function beginValuePicker(n) {
+                if (!n || n.type !== "INPUT") return;
+
+                state.valuePickerNodeId = n.id;
+                valuePickerOptions.innerHTML = "";
+
+                for (const option of valueBehaviour.options()) {
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.className = "valueOption";
+                    button.textContent = option.label;
+                    button.onclick = () => {
+                        n.value = valueBehaviour.clone(option.value);
+                        state.valuePickerNodeId = null;
+                        valueDialog.close();
+                        render();
+                    };
+                    valuePickerOptions.appendChild(button);
+                }
+
+                valueDialog.showModal();
+
+                const first = valuePickerOptions.querySelector("button");
+                if (first) first.focus();
+            }
+
+            valueDialog.addEventListener("close", () => {
+                state.valuePickerNodeId = null;
+            });
+
+            valueDialog.addEventListener("click", (e) => {
+                if (e.target === valueDialog) valueDialog.close();
+            });
+
+            /* Save the selected circuit as ONE reusable component. INPUT and OUTPUT nodes become its external interface; the internal gates are hidden. */
             document.getElementById("saveComponent").onclick = () => {
                 if (!state.selected.size) {
                     alert("Select the nodes that make up the component first.");
@@ -1115,7 +1634,6 @@
                     50,
                 );
             };
-
             document
                 .getElementById("nameForm")
                 .addEventListener("submit", (e) => {
@@ -1124,23 +1642,31 @@
                         .getElementById("componentName")
                         .value.trim();
                     if (!name) return;
-
-                    const ids = new Set(state.selected);
-                    const chosen = state.nodes.filter((n) => ids.has(n.id));
+                    const ids = new Set(state.selected),
+                        chosen = state.nodes.filter((n) => ids.has(n.id));
                     if (!chosen.length) return;
-
-                    const minX = Math.min(...chosen.map((n) => n.x));
-                    const minY = Math.min(...chosen.map((n) => n.y));
-
+                    const inputs = chosen.filter((n) => n.type === "INPUT"),
+                        outputs = chosen.filter((n) => n.type === "OUTPUT");
+                    if (!inputs.length && !outputs.length) {
+                        alert(
+                            "A component needs at least one Input or Output node.",
+                        );
+                        return;
+                    }
+                    const minX = Math.min(...chosen.map((n) => n.x)),
+                        minY = Math.min(...chosen.map((n) => n.y));
                     const comp = {
                         id: uid("comp"),
                         name,
+                        inputLabels: inputs.map((n) => n.label),
+                        outputLabels: outputs.map((n) => n.label),
                         nodes: chosen.map((n) => ({
                             type: n.type,
                             x: n.x - minX,
                             y: n.y - minY,
                             label: n.label,
                             value: n.value,
+                            componentId: n.componentId,
                         })),
                         wires: state.wires
                             .filter((w) => ids.has(w.from) && ids.has(w.to))
@@ -1153,70 +1679,125 @@
                                     fromIndex: chosen.indexOf(from),
                                     toIndex: chosen.indexOf(to),
                                     input: w.input,
+                                    output: w.output || 0,
                                 };
                             }),
                     };
-
                     state.components.push(comp);
                     persist();
                     renderComponents();
                     document.getElementById("nameDialog").close();
                 });
 
-            function placeComponent(comp, pos) {
-                const p = pos || state.mouseWorld || { x: 200, y: 150 };
-                const created = [];
-
-                // Create the component's nodes first, keeping their exact index mapping.
-                for (const cn of comp.nodes) {
-                    created.push(
-                        makeNode(cn.type, p.x + cn.x, p.y + cn.y, {
-                            label: cn.label,
-                            value: cn.value,
-                        }),
-                    );
+            /* Replace the selected circuit with a single component instance. */
+            function replaceSelectionWithComponent(comp) {
+                const ids = new Set(state.selected),
+                    chosen = state.nodes.filter((n) => ids.has(n.id));
+                if (!chosen.length) return;
+                const minX = Math.min(...chosen.map((n) => n.x)),
+                    minY = Math.min(...chosen.map((n) => n.y));
+                const maxX = Math.max(...chosen.map((n) => n.x + nodeWidth(n))),
+                    maxY = Math.max(...chosen.map((n) => n.y + nodeHeight(n)));
+                const n = makeNode("COMPONENT", minX, minY, {
+                    componentId: comp.id,
+                    componentName: comp.name,
+                    label: comp.name,
+                });
+                // Preserve any external wires by mapping wires crossing the selection to component ports.
+                const inNodes = chosen.filter((x) => x.type === "INPUT"),
+                    outNodes = chosen.filter((x) => x.type === "OUTPUT");
+                const inMap = new Map(inNodes.map((x, i) => [x.id, i])),
+                    outMap = new Map(outNodes.map((x, i) => [x.id, i]));
+                const newWires = [];
+                for (const w of state.wires) {
+                    const fromInside = ids.has(w.from),
+                        toInside = ids.has(w.to);
+                    if (fromInside && !toInside) {
+                        const o = outMap.get(w.from);
+                        if (o !== undefined)
+                            newWires.push({ ...w, from: n.id, output: o });
+                    } else if (!fromInside && toInside) {
+                        const i = inMap.get(w.to);
+                        if (i !== undefined)
+                            newWires.push({ ...w, to: n.id, input: i });
+                    } else if (!fromInside && !toInside) newWires.push(w);
                 }
-
-                // Recreate only the component's internal connections.
-                for (const w of comp.wires) {
-                    const a = created[w.fromIndex],
-                        b = created[w.toIndex];
-                    if (a && b) {
-                        state.wires.push({
-                            id: uid("wire"),
-                            from: a.id,
-                            to: b.id,
-                            input: w.input,
-                        });
-                    }
-                }
-
+                state.nodes = state.nodes.filter((x) => !ids.has(x.id));
+                state.wires = newWires;
                 state.selected.clear();
-                created.forEach((n) => state.selected.add(n.id));
+                state.selected.add(n.id);
                 render();
             }
-
+            function placeComponent(comp, pos) {
+                const p = pos || {
+                    x: (svg.clientWidth / 2 - state.pan.x) / state.zoom,
+                    y: (svg.clientHeight / 2 - state.pan.y) / state.zoom,
+                };
+                const n = makeNode(
+                    "COMPONENT",
+                    p.x - COMPONENT_W / 2,
+                    p.y -
+                        nodeHeight({
+                            type: "COMPONENT",
+                            componentId: comp.id,
+                        }) /
+                            2,
+                    {
+                        componentId: comp.id,
+                        componentName: comp.name,
+                        label: comp.name,
+                    },
+                );
+                state.selected.clear();
+                state.selected.add(n.id);
+                render();
+            }
             function renderComponents() {
                 const bar = document.getElementById("componentBar");
                 bar.innerHTML = "";
                 if (!state.components.length) {
-                    const empty = document.createElement("div");
-                    empty.className = "hint";
-                    empty.textContent = "No custom components saved.";
-                    bar.appendChild(empty);
+                    const e = document.createElement("div");
+                    e.className = "hint";
+                    e.textContent = "No custom components saved.";
+                    bar.appendChild(e);
                     return;
                 }
                 for (const comp of state.components) {
+                    const wrapper = document.createElement("div");
+                    wrapper.style.display = "flex";
+                    wrapper.style.gap = "4px";
+                    wrapper.style.width = "100%";
+
                     const b = document.createElement("button");
                     b.className = "paletteItem componentBtn";
-                    b.innerHTML = `<strong>${escapeHtml(comp.name)}</strong><small>${comp.nodes.length} nodes · ${comp.wires.length} wires</small>`;
+                    b.style.flex = "1";
+                    b.innerHTML = `<strong>${escapeHtml(comp.name)}</strong><small>${comp.inputLabels.length} inputs · ${comp.outputLabels.length} outputs</small>`;
                     b.onclick = () => placeComponent(comp);
-                    bar.appendChild(b);
+
+                    const deleteBtn = document.createElement("button");
+                    deleteBtn.textContent = "×";
+                    deleteBtn.title = "Delete component";
+                    deleteBtn.style.padding = "6px 9px";
+                    deleteBtn.style.background = "#b84a4a";
+
+                    deleteBtn.onclick = (e) => {
+                        e.stopPropagation();
+
+                        state.components = state.components.filter(
+                            (c) => c.id !== comp.id,
+                        );
+
+                        renderComponents();
+                        render();
+                    };
+
+                    wrapper.appendChild(b);
+                    wrapper.appendChild(deleteBtn);
+                    bar.appendChild(wrapper);
                 }
             }
-
             function escapeHtml(s) {
-                return s.replace(
+                return String(s).replace(
                     /[&<>"']/g,
                     (c) =>
                         ({
@@ -1232,7 +1813,7 @@
             function serialise() {
                 return JSON.stringify(
                     {
-                        version: 2,
+                        version: 4,
                         nodes: state.nodes,
                         wires: state.wires,
                         components: state.components,
@@ -1243,30 +1824,47 @@
                     2,
                 );
             }
-
             function applySerialised(obj) {
                 state.nodes = Array.isArray(obj.nodes) ? obj.nodes : [];
                 state.wires = Array.isArray(obj.wires) ? obj.wires : [];
                 state.components = Array.isArray(obj.components)
                     ? obj.components
                     : [];
+                state.nodes.forEach((n) => {
+                    if (n.type === "INPUT" || n.type === "OUTPUT")
+                        n.value = normaliseValue(n.value);
+                });
+                state.components.forEach((c) =>
+                    (c.nodes || []).forEach((n) => {
+                        if (n.type === "INPUT" || n.type === "OUTPUT")
+                            n.value = normaliseValue(n.value);
+                    }),
+                );
                 state.pan = obj.pan || { x: 0, y: 0 };
                 state.zoom = obj.zoom || 1;
                 state.selected.clear();
                 state.selectedWire = null;
+                // Backward compatibility for old components.
+                state.components.forEach((c) => {
+                    if (!c.inputLabels)
+                        c.inputLabels = (c.nodes || [])
+                            .filter((n) => n.type === "INPUT")
+                            .map((n) => n.label);
+                    if (!c.outputLabels)
+                        c.outputLabels = (c.nodes || [])
+                            .filter((n) => n.type === "OUTPUT")
+                            .map((n) => n.label);
+                });
                 renderComponents();
                 render();
             }
-
             function persist() {
                 localStorage.setItem("logic-editor-state", serialise());
             }
-
             document.getElementById("saveLocal").onclick = () => {
                 persist();
                 alert("Saved to this browser.");
             };
-
             document.getElementById("loadLocal").onclick = () => {
                 const raw = localStorage.getItem("logic-editor-state");
                 if (!raw) {
@@ -1275,22 +1873,18 @@
                 }
                 applySerialised(JSON.parse(raw));
             };
-
             document.getElementById("exportBtn").onclick = () => {
                 const blob = new Blob([serialise()], {
-                    type: "application/json",
-                });
-                const a = document.createElement("a");
+                        type: "application/json",
+                    }),
+                    a = document.createElement("a");
                 a.href = URL.createObjectURL(blob);
                 a.download = "logic-circuit.json";
                 a.click();
                 URL.revokeObjectURL(a.href);
             };
-
-            document.getElementById("importBtn").onclick = () => {
+            document.getElementById("importBtn").onclick = () =>
                 document.getElementById("fileInput").click();
-            };
-
             document.getElementById("fileInput").onchange = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -1307,7 +1901,11 @@
 
             window.addEventListener("keydown", (e) => {
                 if (e.key === "Delete" || e.key === "Backspace") {
-                    if (document.activeElement === inlineLabel) return;
+                    if (
+                        document.activeElement === inlineLabel ||
+                        valueDialog.open
+                    )
+                        return;
                     document.getElementById("deleteBtn").click();
                 }
                 if (e.key === "Escape") {
@@ -1315,11 +1913,8 @@
                     state.rubberBand = null;
                     render();
                 }
-                if (e.key === " ") {
-                    e.preventDefault();
-                }
+                if (e.key === " ") e.preventDefault();
             });
-
             window.addEventListener("keyup", (e) => {
                 if (e.key === " " && state.isPanning) {
                     state.isPanning = false;
@@ -1332,12 +1927,14 @@
                 const n = state.nodes.find(
                     (n) =>
                         p.x >= n.x &&
-                        p.x <= n.x + NODE_W &&
+                        p.x <= n.x + nodeWidth(n) &&
                         p.y >= n.y &&
-                        p.y <= n.y + NODE_H,
+                        p.y <= n.y + nodeHeight(n),
                 );
-                if (n && (n.type === "INPUT" || n.type === "OUTPUT"))
-                    beginRename(n);
+                if (!n || (n.type !== "INPUT" && n.type !== "OUTPUT")) return;
+
+                const splitX = n.x + ioLabelWidth(n);
+                if (p.x <= splitX) beginRename(n);
             });
 
             renderComponents();
