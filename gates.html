@@ -52,22 +52,33 @@
                 flex-direction: column;
             }
             #toolbar {
-                height: 58px;
+                position: relative;
+                flex: 0 0 auto;
                 min-height: 58px;
                 background: var(--panel);
                 display: flex;
                 align-items: center;
-                gap: 7px;
-                padding: 0 10px;
+                align-content: center;
+                flex-wrap: wrap;
+                gap: 6px 7px;
+                padding: 6px 48px 6px 10px;
                 border-bottom: 1px solid #3e5668;
                 box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
                 z-index: 20;
             }
+            #toolbar.hidden,
+            #palette.hidden {
+                display: none;
+            }
             .toolGroup {
                 display: flex;
                 align-items: center;
-                gap: 6px;
-                padding-right: 8px;
+                align-content: center;
+                flex-wrap: wrap;
+                gap: 5px;
+                min-width: 0;
+                flex: 0 1 auto;
+                padding-right: 7px;
                 border-right: 1px solid #466175;
             }
             .toolGroup:last-child {
@@ -78,10 +89,64 @@
                 border: 0;
                 background: var(--panel2);
                 color: var(--text);
-                padding: 8px 11px;
+                padding: 7px 9px;
                 border-radius: 7px;
-                font-size: 13px;
+                font-size: 12px;
+                line-height: 1.2;
+                white-space: nowrap;
                 cursor: pointer;
+            }
+            .panelToggle {
+                appearance: none;
+                border: 1px solid #5f7c90;
+                background: #1c3445;
+                color: #e7eef5;
+                width: 30px;
+                height: 30px;
+                padding: 0;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 8px;
+                font-size: 15px;
+                line-height: 1;
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+                z-index: 25;
+            }
+            /* The native [hidden] attribute must win over display rules such as
+               .panelToggle { display: inline-flex; }. */
+            button[hidden] {
+                display: none !important;
+            }
+
+            .panelToggle:hover {
+                filter: brightness(1.15);
+            }
+
+            #zoomReset {
+                width: 54px;
+                min-width: 54px;
+                flex: 0 0 54px;
+                text-align: center;
+                font-variant-numeric: tabular-nums;
+            }
+            #hideToolbar {
+                position: absolute;
+                top: 7px;
+                right: 8px;
+            }
+            #showToolbar {
+                position: fixed;
+                top: 8px;
+                right: 8px;
+                z-index: 60;
+            }
+            #showPalette {
+                position: absolute;
+                left: 8px;
+                top: 3.5%;
+                transform: translateY(-50%);
+                z-index: 60;
             }
             button:hover {
                 filter: brightness(1.12);
@@ -105,12 +170,22 @@
                 flex: 1;
             }
             #palette {
-                width: 190px;
+                width: clamp(150px, 18vw, 210px);
+                min-width: 150px;
                 background: #203547;
                 border-right: 1px solid #385166;
-                padding: 12px;
+                padding: 10px;
                 overflow: auto;
                 z-index: 10;
+                display: flex;
+                flex-direction: column;
+            }
+            .paletteHeader {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+                margin-bottom: 4px;
             }
             #palette h3 {
                 font-size: 12px;
@@ -118,6 +193,18 @@
                 letter-spacing: 0.08em;
                 color: #a6b9c7;
                 margin: 7px 4px 9px;
+            }
+            #hidePalette {
+                flex: 0 0 auto;
+                width: 28px;
+                height: 28px;
+                padding: 0;
+                border: 1px solid #4f6b7e;
+                background: #2a465b;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 15px;
             }
             .paletteItem {
                 width: 100%;
@@ -299,13 +386,15 @@
                 font-size: 11px;
                 font-weight: 600;
                 pointer-events: none;
+                text-anchor: middle;
+                dominant-baseline: middle;
             }
             .wireLabelBg {
                 fill: #fff;
                 opacity: 0.92;
                 rx: 4;
-				stroke: #26343f;
-				stroke-width: 1px;
+                stroke: #26343f;
+                stroke-width: 1px;
             }
             .textInput {
                 position: absolute;
@@ -326,29 +415,101 @@
                 box-shadow: 0 5px 18px rgba(24, 51, 64, 0.22);
                 outline: none;
             }
-
             .valuePickerOptions {
+                margin-top: 16px;
+            }
+
+            .sliderWrap {
                 display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 10px;
+            }
+
+            .valueSlider {
+                width: 100%;
+                accent-color: var(--accent);
+                cursor: pointer;
+            }
+
+            .sliderLabels {
+                display: flex;
+                justify-content: space-between;
+                gap: 8px;
+                color: #b8c9d3;
+                font-size: 11px;
+            }
+
+            .sliderValue {
+                text-align: center;
+                font-size: 18px;
+                font-weight: 800;
+                color: #eff7fa;
+                min-height: 24px;
+            }
+
+            .logicChoices {
+                display: grid;
                 gap: 8px;
                 margin-top: 12px;
             }
 
-            .valueOption {
-                min-height: 48px;
+            .logicNControl {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                margin-top: 10px;
+                padding: 9px 10px;
+                border: 1px solid #4f6b7e;
+                border-radius: 8px;
+                background: #294457;
+            }
+
+            .logicNControl label {
+                color: #d9e6ed;
+                font-size: 12px;
+                font-weight: 700;
+            }
+
+            .logicNControl input {
+                width: 74px;
+                margin: 0;
+                padding: 6px 8px;
+                text-align: center;
+                font-weight: 700;
+            }
+
+            .logicChoice {
+                width: 100%;
                 border: 1px solid #6f8ea1;
                 background: #2d495d;
                 color: #eff7fa;
                 border-radius: 9px;
-                font-weight: 750;
-                text-align: center;
-                padding: 8px;
+                font-weight: 700;
+                text-align: left;
+                padding: 10px 12px;
             }
 
-            .valueOption:hover,
-            .valueOption:focus-visible {
+            .logicChoice.active {
                 outline: 2px solid var(--accent);
                 background: #3b6177;
+            }
+
+            .logicMeta {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                margin-top: 12px;
+            }
+
+            .logicMeta label {
+                font-size: 12px;
+                color: #b8c9d3;
+            }
+
+            .logicMeta input {
+                width: 90px;
+                text-align: center;
             }
 
             .dialogMuted {
@@ -360,7 +521,11 @@
             #componentBar {
                 display: flex;
                 gap: 6px;
-                flex-wrap: wrap;
+                flex-direction: column;
+                min-width: 0;
+            }
+            #componentBar > div {
+                min-width: 0;
             }
             .componentBtn {
                 background: #37556b;
@@ -378,7 +543,8 @@
                 background: #203547;
                 color: #fff;
                 box-shadow: 0 16px 50px rgba(0, 0, 0, 0.45);
-                width: 360px;
+                width: min(360px, calc(100vw - 24px));
+                max-width: calc(100vw - 24px);
             }
             dialog::backdrop {
                 background: rgba(0, 0, 0, 0.35);
@@ -404,6 +570,40 @@
                 border-radius: 999px;
                 color: #dbe7ed;
             }
+
+            @media (max-width: 900px) {
+                #toolbar {
+                    gap: 5px;
+                    padding-left: 7px;
+                    padding-right: 46px;
+                }
+                .toolGroup {
+                    gap: 4px;
+                    padding-right: 5px;
+                }
+                button {
+                    padding: 6px 8px;
+                    font-size: 11px;
+                }
+                #palette {
+                    width: 160px;
+                    min-width: 160px;
+                    padding: 8px;
+                }
+            }
+
+            @media (max-width: 620px) {
+                #toolbar {
+                    align-items: stretch;
+                }
+                .title {
+                    font-size: 12px;
+                }
+                #palette {
+                    width: 145px;
+                    min-width: 145px;
+                }
+            }
         </style>
     </head>
     <body>
@@ -411,11 +611,18 @@
             <div id="toolbar">
                 <div class="toolGroup">
                     <div class="title">Logic Editor</div>
+                    <button id="Logic">Logic</button>
                 </div>
                 <div class="toolGroup">
                     <button data-add="AND">AND</button>
                     <button data-add="OR">OR</button>
                     <button data-add="NOT">NOT</button>
+                    <button id="strongAndBtn" data-add="STRONG_AND" hidden>
+                        ⊙ Strong AND
+                    </button>
+                    <button id="strongOrBtn" data-add="STRONG_OR" hidden>
+                        ⊕ Strong OR
+                    </button>
                 </div>
                 <div class="toolGroup">
                     <button data-add="INPUT">Input</button>
@@ -437,15 +644,54 @@
                     <button id="exportBtn">Export</button>
                     <button id="importBtn">Import</button>
                 </div>
+                <button
+                    id="hideToolbar"
+                    class="panelToggle"
+                    type="button"
+                    title="Hide toolbar"
+                    aria-label="Hide toolbar"
+                >
+                    ⌃
+                </button>
             </div>
+            <button
+                id="showToolbar"
+                class="panelToggle"
+                type="button"
+                title="Show toolbar"
+                aria-label="Show toolbar"
+                hidden
+            >
+                ⌄
+            </button>
 
             <div id="main">
                 <aside id="palette">
-                    <h3>Components</h3>
+                    <div class="paletteHeader">
+                        <h3>Components</h3>
+                        <button
+                            id="hidePalette"
+                            type="button"
+                            title="Hide components panel"
+                            aria-label="Hide components panel"
+                        >
+                            ‹
+                        </button>
+                    </div>
                     <div id="componentBar"></div>
                 </aside>
 
                 <section id="workspace">
+                    <button
+                        id="showPalette"
+                        class="panelToggle"
+                        type="button"
+                        title="Show components panel"
+                        aria-label="Show components panel"
+                        hidden
+                    >
+                        ›
+                    </button>
                     <svg id="svg"></svg>
                     <div id="status">Zoom 100%</div>
                     <input
@@ -470,7 +716,9 @@
                     required
                 />
                 <div class="row">
-                    <button value="cancel">Cancel</button>
+                    <button type="submit" formnovalidate value="cancel">
+                        Cancel
+                    </button>
                     <button id="confirmSave" value="default">
                         Save component
                     </button>
@@ -492,6 +740,84 @@
                 </div>
             </form>
         </dialog>
+        <dialog id="logicDialog">
+            <form method="dialog" id="logicForm">
+                <h3 id="logicDialogTitle" style="margin: 0 0 6px">
+                    Select logic
+                </h3>
+                <p id="logicDialogHint" class="dialogMuted">
+                    Select the truth-value semantics used by the circuit.
+                </p>
+                <div id="logicNRow" class="logicNControl" hidden>
+                    <label for="logicNInput">Number of truth values, n</label>
+                    <input
+                        id="logicNInput"
+                        type="number"
+                        min="2"
+                        max="64"
+                        step="1"
+                        value="3"
+                    />
+                </div>
+                <div id="logicPickerOptions" class="logicChoices"></div>
+                <div class="row">
+                    <button value="cancel">Cancel</button>
+                    <button id="applyLogicBtn" value="default">Apply</button>
+                </div>
+            </form>
+        </dialog>
+        <dialog id="messageDialog">
+            <form method="dialog">
+                <h3 id="messageDialogTitle" style="margin: 0 0 8px">Notice</h3>
+                <p
+                    id="messageDialogText"
+                    class="dialogMuted"
+                    style="margin: 0"
+                ></p>
+                <div class="row">
+                    <button value="default">OK</button>
+                </div>
+            </form>
+        </dialog>
+        <dialog id="deleteComponentDialog">
+            <form method="dialog" id="deleteComponentForm">
+                <h3 id="deleteComponentDialogTitle" style="margin: 0 0 8px">
+                    Delete component
+                </h3>
+
+                <p
+                    id="deleteComponentDialogText"
+                    class="dialogMuted"
+                    style="margin: 0 0 12px"
+                ></p>
+
+                <div
+                    id="deleteComponentDependencies"
+                    style="
+                        display: none;
+                        margin-top: 12px;
+                        padding: 10px 12px;
+                        border: 1px solid #597287;
+                        border-radius: 8px;
+                        background: #294457;
+                        max-height: 180px;
+                        overflow-y: auto;
+                    "
+                ></div>
+
+                <div class="row">
+                    <button type="submit" value="cancel">Cancel</button>
+                    <button
+                        id="confirmDeleteComponent"
+                        type="submit"
+                        value="delete"
+                        class="danger"
+                    >
+                        Delete
+                    </button>
+                </div>
+            </form>
+        </dialog>
 
         <input
             type="file"
@@ -508,8 +834,45 @@
             const valueDialog = document.getElementById("valueDialog");
             const valuePickerOptions =
                 document.getElementById("valuePickerOptions");
+            const valueDialogTitle =
+                document.getElementById("valueDialogTitle");
+            const valueDialogHint = document.getElementById("valueDialogHint");
+            const logicButton = document.getElementById("Logic");
+            const logicDialog = document.getElementById("logicDialog");
+            const logicPickerOptions =
+                document.getElementById("logicPickerOptions");
+            const logicNRow = document.getElementById("logicNRow");
+            const logicNInput = document.getElementById("logicNInput");
+            const applyLogicBtn = document.getElementById("applyLogicBtn");
+            const strongAndBtn = document.getElementById("strongAndBtn");
+            const strongOrBtn = document.getElementById("strongOrBtn");
+            const toolbar = document.getElementById("toolbar");
+            const palette = document.getElementById("palette");
+            const hideToolbarBtn = document.getElementById("hideToolbar");
+            const showToolbarBtn = document.getElementById("showToolbar");
+            const hidePaletteBtn = document.getElementById("hidePalette");
+            const showPaletteBtn = document.getElementById("showPalette");
+            const messageDialog = document.getElementById("messageDialog");
+            const messageDialogTitle =
+                document.getElementById("messageDialogTitle");
+            const messageDialogText =
+                document.getElementById("messageDialogText");
+            const deleteComponentDialog = document.getElementById(
+                "deleteComponentDialog",
+            );
+            const deleteComponentDialogTitle = document.getElementById(
+                "deleteComponentDialogTitle",
+            );
+            const deleteComponentDialogText = document.getElementById(
+                "deleteComponentDialogText",
+            );
+            const deleteComponentDependencies = document.getElementById(
+                "deleteComponentDependencies",
+            );
 
             const state = {
+                logic: "binary",
+                logicN: 3,
                 nodes: [],
                 wires: [],
                 selected: new Set(),
@@ -527,6 +890,38 @@
                 valuePickerNodeId: null,
             };
 
+            function setToolbarVisible(visible) {
+                toolbar.classList.toggle("hidden", !visible);
+                showToolbarBtn.hidden = visible;
+                toolbar.setAttribute("aria-hidden", String(!visible));
+                requestAnimationFrame(() => render());
+            }
+
+            function setPaletteVisible(visible) {
+                palette.classList.toggle("hidden", !visible);
+                showPaletteBtn.hidden = visible;
+                palette.setAttribute("aria-hidden", String(!visible));
+                requestAnimationFrame(() => render());
+            }
+            function showMessage(title, message) {
+                messageDialogTitle.textContent = title;
+                messageDialogText.textContent = message;
+                messageDialog.showModal();
+            }
+
+            hideToolbarBtn.addEventListener("click", () =>
+                setToolbarVisible(false),
+            );
+            showToolbarBtn.addEventListener("click", () =>
+                setToolbarVisible(true),
+            );
+            hidePaletteBtn.addEventListener("click", () =>
+                setPaletteVisible(false),
+            );
+            showPaletteBtn.addEventListener("click", () =>
+                setPaletteVisible(true),
+            );
+
             const NODE_W = 75;
             const IO_NODE_W = 125;
             const NODE_H = 50;
@@ -534,69 +929,316 @@
             const GRID = 12.5;
             const PORT_LABEL_MARGIN = 25;
 
-            const gateInputs = { AND: 2, OR: 2, NOT: 1, INPUT: 0, OUTPUT: 1 };
-            const gateOutputs = { AND: 1, OR: 1, NOT: 1, INPUT: 1, OUTPUT: 0 };
+            const gateInputs = {
+                AND: 2,
+                OR: 2,
+                NOT: 1,
+                STRONG_AND: 2,
+                STRONG_OR: 2,
+                INPUT: 0,
+                OUTPUT: 1,
+            };
+            const gateOutputs = {
+                AND: 1,
+                OR: 1,
+                NOT: 1,
+                STRONG_AND: 1,
+                STRONG_OR: 1,
+                INPUT: 1,
+                OUTPUT: 0,
+            };
+
+            let pendingComponentDeletion = null;
 
             /*
              * All circuit values are opaque to the editor. To change the circuit
              * from bits to another value domain, replace this object rather than
              * rewriting rendering, persistence, wiring, or simulation.
              */
+            const LOGICS = {
+                binary: {
+                    label: "Binary logic",
+                    finite: true,
+                    truthValues() {
+                        return [0, 1];
+                    },
+                    normalise(value) {
+                        return Number(value) >= 0.5 ? 1 : 0;
+                    },
+                    and(values) {
+                        return values.length ? Math.min(...values) : 0;
+                    },
+                    or(values) {
+                        return values.length ? Math.max(...values) : 0;
+                    },
+                    not(value) {
+                        return Number(value) === 0 ? 1 : 0;
+                    },
+                    strongAnd(values) {
+                        return this.and(values);
+                    },
+                    strongOr(values) {
+                        return this.or(values);
+                    },
+                },
+                godel: {
+                    label: "n-valued Gödel logic",
+                    finite: true,
+                    truthValues(n) {
+                        const count = Math.max(2, Math.round(Number(n) || 2));
+                        return Array.from(
+                            { length: count },
+                            (_, i) => i / (count - 1),
+                        );
+                    },
+                    normalise(value, n) {
+                        return nearestTruthValue(value, this.truthValues(n));
+                    },
+                    and(values) {
+                        return values.length ? Math.min(...values) : 0;
+                    },
+                    or(values) {
+                        return values.length ? Math.max(...values) : 0;
+                    },
+                    not(value) {
+                        return Number(value) === 0 ? 1 : 0;
+                    },
+                    strongAnd(values) {
+                        return this.and(values);
+                    },
+                    strongOr(values) {
+                        return this.or(values);
+                    },
+                },
+                lukasiewicz: {
+                    label: "n-valued Łukasiewicz logic",
+                    finite: true,
+                    truthValues(n) {
+                        const count = Math.max(2, Math.round(Number(n) || 2));
+                        return Array.from(
+                            { length: count },
+                            (_, i) => i / (count - 1),
+                        );
+                    },
+                    normalise(value, n) {
+                        return nearestTruthValue(value, this.truthValues(n));
+                    },
+                    and(values) {
+                        return values.length ? Math.min(...values) : 0;
+                    },
+                    or(values) {
+                        return values.length ? Math.max(...values) : 0;
+                    },
+                    not(value) {
+                        return clamp01(1 - Number(value));
+                    },
+                    strongAnd(values) {
+                        if (!values.length) return 0;
+                        return Math.max(
+                            0,
+                            values.reduce(
+                                (sum, value) => sum + Number(value),
+                                0,
+                            ) -
+                                (values.length - 1),
+                        );
+                    },
+                    strongOr(values) {
+                        return values.reduce(
+                            (acc, value) => Math.min(1, acc + Number(value)),
+                            0,
+                        );
+                    },
+                },
+                continuous_godel: {
+                    label: "Gödel logic on [0,1]",
+                    finite: false,
+                    truthValues() {
+                        return null;
+                    },
+                    normalise(value) {
+                        return clamp01(Number(value));
+                    },
+                    and(values) {
+                        return values.length ? Math.min(...values) : 0;
+                    },
+                    or(values) {
+                        return values.length ? Math.max(...values) : 0;
+                    },
+                    not(value) {
+                        return Number(value) === 0 ? 1 : 0;
+                    },
+                    strongAnd(values) {
+                        return this.and(values);
+                    },
+                    strongOr(values) {
+                        return this.or(values);
+                    },
+                },
+                continuous_lukasiewicz: {
+                    label: "Łukasiewicz logic on [0,1]",
+                    finite: false,
+                    truthValues() {
+                        return null;
+                    },
+                    normalise(value) {
+                        return clamp01(Number(value));
+                    },
+                    and(values) {
+                        return values.length ? Math.min(...values) : 0;
+                    },
+                    or(values) {
+                        return values.length ? Math.max(...values) : 0;
+                    },
+                    not(value) {
+                        return clamp01(1 - Number(value));
+                    },
+                    strongAnd(values) {
+                        if (!values.length) return 0;
+                        return Math.max(
+                            0,
+                            values.reduce(
+                                (sum, value) => sum + Number(value),
+                                0,
+                            ) -
+                                (values.length - 1),
+                        );
+                    },
+                    strongOr(values) {
+                        return values.reduce(
+                            (acc, value) => Math.min(1, acc + Number(value)),
+                            0,
+                        );
+                    },
+                },
+            };
+
+            function clamp01(value) {
+                return Math.max(
+                    0,
+                    Math.min(1, Number.isFinite(value) ? value : 0),
+                );
+            }
+
+            function gcd(a, b) {
+                a = Math.abs(Math.trunc(a));
+                b = Math.abs(Math.trunc(b));
+                while (b) {
+                    const t = a % b;
+                    a = b;
+                    b = t;
+                }
+                return a || 1;
+            }
+
+            function nearestTruthValue(value, values) {
+                const v = clamp01(Number(value));
+                return values.reduce(
+                    (best, candidate) =>
+                        Math.abs(candidate - v) < Math.abs(best - v)
+                            ? candidate
+                            : best,
+                    values[0] ?? 0,
+                );
+            }
+
+            function currentLogic() {
+                return LOGICS[state.logic] || LOGICS.binary;
+            }
+
+            function truthValues() {
+                return currentLogic().truthValues(state.logicN);
+            }
+
             const valueBehaviour = {
-                defaultValue: 0,
-
+                get defaultValue() {
+                    return 0;
+                },
                 normalise(value) {
-                    return value === 1 ? 1 : 0;
+                    return currentLogic().normalise(value, state.logicN);
                 },
-
                 clone(value) {
-                    return value;
+                    return Number(value);
                 },
-
                 equals(a, b) {
-                    return Object.is(a, b);
+                    return (
+                        Object.is(a, b) ||
+                        Math.abs(Number(a) - Number(b)) < 1e-12
+                    );
                 },
-
                 display(value) {
-                    return String(value);
+                    const logic = currentLogic();
+                    const v = Number(value);
+                    if (!logic.finite) {
+                        return v.toFixed(3).replace(/\.?0+$/, "");
+                    }
+                    const values = logic.truthValues(state.logicN);
+                    if (values && values.length > 1) {
+                        let bestIndex = 0;
+                        let bestDistance = Infinity;
+                        for (let i = 0; i < values.length; i++) {
+                            const distance = Math.abs(values[i] - v);
+                            if (distance < bestDistance) {
+                                bestDistance = distance;
+                                bestIndex = i;
+                            }
+                        }
+                        const numerator = bestIndex;
+                        const denominator = values.length - 1;
+                        if (numerator === 0) return "0";
+                        if (numerator === denominator) return "1";
+                        const g = gcd(numerator, denominator);
+                        return `${numerator / g}/${denominator / g}`;
+                    }
+                    return String(v);
                 },
-
                 isActive(value) {
-                    return value !== 0;
+                    return Number(value) !== 0;
                 },
-
                 options() {
-                    return [
-                        { value: 0, label: "0" },
-                        { value: 1, label: "1" },
-                    ];
+                    const values = truthValues();
+                    return values
+                        ? values.map((value) => ({
+                              value,
+                              label: this.display(value),
+                          }))
+                        : [];
                 },
-
                 and(values) {
-                    return values.length
-                        ? values.reduce(
-                              (acc, value) => (acc && value ? 1 : 0),
-                              1,
-                          )
-                        : 0;
+                    return currentLogic().and(values);
                 },
-
                 or(values) {
-                    return values.some((value) => value !== 0) ? 1 : 0;
+                    return currentLogic().or(values);
                 },
-
                 not(value) {
-                    return value === 0 ? 1 : 0;
+                    return currentLogic().not(value);
                 },
-
+                strongAnd(values) {
+                    return currentLogic().strongAnd(values);
+                },
+                strongOr(values) {
+                    return currentLogic().strongOr(values);
+                },
                 passthrough(value) {
-                    return value;
+                    return valueBehaviour.normalise(value);
                 },
-
                 defaultOutput() {
                     return this.defaultValue;
                 },
             };
+
+            function normaliseAllValues() {
+                state.nodes.forEach((n) => {
+                    if (n.type === "INPUT" || n.type === "OUTPUT")
+                        n.value = normaliseValue(n.value);
+                });
+                state.components.forEach((c) =>
+                    (c.nodes || []).forEach((n) => {
+                        if (n.type === "INPUT" || n.type === "OUTPUT")
+                            n.value = normaliseValue(n.value);
+                    }),
+                );
+            }
 
             function valueDefault() {
                 return valueBehaviour.clone(valueBehaviour.defaultValue);
@@ -605,11 +1247,6 @@
             function normaliseValue(value) {
                 return valueBehaviour.normalise(value);
             }
-
-            function displayValue(value) {
-                return value + "";
-            }
-
             function sameValue(a, b) {
                 return valueBehaviour.equals(a, b);
             }
@@ -629,18 +1266,32 @@
             }
 
             function evaluateGate(type, inputs) {
+                let result;
                 switch (type) {
                     case "AND":
-                        return valueBehaviour.and(inputs);
+                        result = valueBehaviour.and(inputs);
+                        break;
                     case "OR":
-                        return valueBehaviour.or(inputs);
+                        result = valueBehaviour.or(inputs);
+                        break;
                     case "NOT":
-                        return valueBehaviour.not(inputs[0] ?? valueDefault());
-                    default:
-                        return valueBehaviour.passthrough(
+                        result = valueBehaviour.not(
                             inputs[0] ?? valueDefault(),
                         );
+                        break;
+                    case "STRONG_AND":
+                        result = valueBehaviour.strongAnd(inputs);
+                        break;
+                    case "STRONG_OR":
+                        result = valueBehaviour.strongOr(inputs);
+                        break;
+                    default:
+                        result = valueBehaviour.passthrough(
+                            inputs[0] ?? valueDefault(),
+                        );
+                        break;
                 }
+                return normaliseValue(result);
             }
 
             function uid(prefix = "id") {
@@ -654,6 +1305,11 @@
             }
             function snap(v) {
                 return Math.round(v / GRID) * GRID;
+            }
+            function compareNodesPhysically(a, b) {
+                const yDiff = a.y - b.y;
+                if (Math.abs(yDiff) > 0.001) return yDiff;
+                return a.x - b.x;
             }
             function componentById(id) {
                 return state.components.find((c) => c.id === id);
@@ -729,12 +1385,12 @@
                 if (type === "INPUT" || type === "OUTPUT" || type === "NOT") {
                     return `M 0 0 H ${w - 16} L ${w} ${h / 2} L ${w - 16} ${h} H 0 Z`;
                 }
-                if (type === "OR") {
+                if (type === "OR" || type === "STRONG_OR") {
                     return `M 0 0 C 28 0, 55 ${Math.max(8, h * 0.16)}, ${w} ${h / 2}
         C 55 ${h - Math.max(8, h * 0.16)}, 28 ${h}, 0 ${h}
         C 17 ${h - 10}, 17 10, 0 0 Z`;
                 }
-                if (type === "AND") {
+                if (type === "AND" || type === "STRONG_AND") {
                     return `M 0 0 H ${w / 2} C ${w - 4} 0, ${w} 11, ${w} ${h / 2}
         C ${w} ${h - 11}, ${w - 4} ${h}, ${w / 2} ${h} H 0 Z`;
                 }
@@ -801,7 +1457,9 @@
                     value: valueDefault(),
                 }));
                 const vals = {};
-                const inNodes = nodes.filter((n) => n.type === "INPUT");
+                const inNodes = nodes
+                    .filter((n) => n.type === "INPUT")
+                    .sort(compareNodesPhysically);
 
                 inNodes.forEach((n, i) => {
                     vals[n._i] = normaliseValue(
@@ -1005,8 +1663,44 @@
                 return t;
             }
 
+            function getDirectDependents(componentId) {
+                return state.components.filter((component) =>
+                    (component.nodes || []).some(
+                        (node) =>
+                            node.type === "COMPONENT" &&
+                            node.componentId === componentId,
+                    ),
+                );
+            }
+
+            function getRecursiveDependents(componentId) {
+                const result = [];
+                const visited = new Set([componentId]);
+
+                function visit(id, depth) {
+                    for (const component of getDirectDependents(id)) {
+                        if (visited.has(component.id)) continue;
+
+                        visited.add(component.id);
+
+                        result.push({
+                            component,
+                            depth,
+                        });
+
+                        visit(component.id, depth + 1);
+                    }
+                }
+
+                visit(componentId, 0);
+
+                return result;
+            }
+
             function render() {
                 recompute();
+                document.getElementById("zoomReset").textContent =
+                    Math.round(state.zoom * 100) + "%";
                 svg.innerHTML = "";
                 const ns = "http://www.w3.org/2000/svg";
                 const defs = document.createElementNS(ns, "defs");
@@ -1087,15 +1781,15 @@
                         world,
                         displayValue(wireValue(w)),
                         mx,
-                        my + 3.5,
+                        my,
                         "wireLabel",
                     );
                     const bb = txt.getBBox();
                     const bg2 = document.createElementNS(ns, "rect");
-                    bg2.setAttribute("x", bb.x - 2.5);
-                    bg2.setAttribute("y", bb.y);
-                    bg2.setAttribute("width", bb.width + 5);
-                    bg2.setAttribute("height", bb.height);
+                    bg2.setAttribute("x", bb.x - 3);
+                    bg2.setAttribute("y", bb.y - 1.5);
+                    bg2.setAttribute("width", bb.width + 6);
+                    bg2.setAttribute("height", bb.height + 3);
                     bg2.setAttribute("class", "wireLabelBg");
                     world.appendChild(bg2);
                     txt.remove();
@@ -1249,7 +1943,13 @@
                             t.setAttribute("text-anchor", "end");
                         });
                     } else {
-                        appendText(g, n.type, w / 2, h / 2 + 4, "");
+                        const gateLabel =
+                            n.type === "STRONG_AND"
+                                ? "⊙"
+                                : n.type === "STRONG_OR"
+                                  ? "⊕"
+                                  : n.type;
+                        appendText(g, gateLabel, w / 2, h / 2 + 4, "");
                     }
 
                     const ic = inputCount(n);
@@ -1313,7 +2013,7 @@
                     box.setAttribute("id", "selectionBox");
                     world.appendChild(box);
                 }
-                statusEl.textContent = `Zoom ${Math.round(state.zoom * 100)}%  |  Nodes ${state.nodes.length}  |  Wires ${state.wires.length}`;
+                statusEl.textContent = `Nodes ${state.nodes.length}  |  Wires ${state.wires.length}`;
             }
 
             function startConnection(node, output = 0) {
@@ -1567,7 +2267,8 @@
                 inlineLabel.select();
 
                 const commit = () => {
-                    n.label = inlineLabel.value.trim() || n.label;
+                    const value = inlineLabel.value;
+                    n.label = value.trim() ? value : n.label;
                     inlineLabel.style.display = "none";
                     render();
                 };
@@ -1589,27 +2290,169 @@
                 if (!n || n.type !== "INPUT") return;
 
                 state.valuePickerNodeId = n.id;
+                const logic = currentLogic();
                 valuePickerOptions.innerHTML = "";
+                valueDialogTitle.textContent = `Set ${n.label} (${logic.label})`;
+                const values = truthValues();
+                valueDialogHint.textContent = logic.finite
+                    ? `Use the slider to select one of the ${values.length} permitted truth values.`
+                    : "Use the continuous slider to choose any value in [0,1].";
 
-                for (const option of valueBehaviour.options()) {
+                const wrap = document.createElement("div");
+                wrap.className = "sliderWrap";
+                const output = document.createElement("div");
+                output.className = "sliderValue";
+
+                const slider = document.createElement("input");
+                slider.type = "range";
+                slider.className = "valueSlider";
+                slider.min = "0";
+                slider.max = logic.finite
+                    ? String(Math.max(0, values.length - 1))
+                    : "1000";
+                slider.step = "1";
+                const sliderIndex = logic.finite
+                    ? values.reduce(
+                          (best, value, i) =>
+                              Math.abs(value - Number(n.value)) <
+                              Math.abs(values[best] - Number(n.value))
+                                  ? i
+                                  : best,
+                          0,
+                      )
+                    : Math.round(clamp01(n.value) * 1000);
+                slider.value = String(sliderIndex);
+
+                const setFromSlider = () => {
+                    if (logic.finite) {
+                        n.value = valueBehaviour.clone(
+                            values[Number(slider.value)] ?? values[0],
+                        );
+                    } else {
+                        n.value = Number(slider.value) / 1000;
+                    }
+                    n.value = normaliseValue(n.value);
+                    output.textContent = displayValue(n.value);
+                    render();
+                };
+
+                slider.addEventListener("input", setFromSlider);
+                output.textContent = displayValue(n.value);
+
+                const labels = document.createElement("div");
+                labels.className = "sliderLabels";
+                const minLabel = document.createElement("span");
+                minLabel.textContent = "0";
+                const maxLabel = document.createElement("span");
+                maxLabel.textContent = "1";
+                labels.append(minLabel, maxLabel);
+
+                wrap.append(output, slider, labels);
+                valuePickerOptions.appendChild(wrap);
+                valueDialog.showModal();
+                slider.focus();
+            }
+
+            let logicDraft = state.logic;
+            let logicDraftN = state.logicN;
+
+            function updateLogicDialog() {
+                logicPickerOptions.innerHTML = "";
+                const choices = [
+                    ["binary", "Binary logic", "Two truth values: 0 and 1."],
+                    [
+                        "godel",
+                        "Gödel logic",
+                        "n-valued finite truth set; AND = min, OR = max.",
+                    ],
+                    [
+                        "lukasiewicz",
+                        "Łukasiewicz logic",
+                        "n-valued finite truth set; includes ⊙ and ⊕.",
+                    ],
+                    [
+                        "continuous_godel",
+                        "Gödel logic on [0,1]",
+                        "Continuous truth values with Gödel connectives.",
+                    ],
+                    [
+                        "continuous_lukasiewicz",
+                        "Łukasiewicz logic on [0,1]",
+                        "Continuous truth values with ⊙ and ⊕.",
+                    ],
+                ];
+
+                choices.forEach(([id, label, description]) => {
                     const button = document.createElement("button");
                     button.type = "button";
-                    button.className = "valueOption";
-                    button.textContent = option.label;
+                    button.className = "logicChoice";
+                    if (id === logicDraft) button.classList.add("active");
+                    button.innerHTML = `<strong>${label}</strong><small style="display:block;color:#b8c9d3;margin-top:3px">${description}</small>`;
                     button.onclick = () => {
-                        n.value = valueBehaviour.clone(option.value);
-                        state.valuePickerNodeId = null;
-                        valueDialog.close();
-                        render();
+                        logicDraft = id;
+                        updateLogicDialog();
                     };
-                    valuePickerOptions.appendChild(button);
-                }
+                    logicPickerOptions.appendChild(button);
+                });
 
-                valueDialog.showModal();
-
-                const first = valuePickerOptions.querySelector("button");
-                if (first) first.focus();
+                const isFiniteN =
+                    logicDraft === "godel" || logicDraft === "lukasiewicz";
+                logicNRow.hidden = !isFiniteN;
+                logicNInput.value = String(
+                    Math.max(2, Math.min(64, Math.round(logicDraftN))),
+                );
+                logicNInput.oninput = () => {
+                    const parsed = Math.round(Number(logicNInput.value));
+                    if (Number.isFinite(parsed))
+                        logicDraftN = Math.max(2, Math.min(64, parsed));
+                };
             }
+
+            function updateLogicButton() {
+                logicButton.textContent =
+                    state.logic === "binary"
+                        ? "Logic: Binary"
+                        : state.logic === "godel"
+                          ? `Logic: Gödel (${state.logicN}-valued)`
+                          : state.logic === "lukasiewicz"
+                            ? `Logic: Łukasiewicz (${state.logicN}-valued)`
+                            : state.logic === "continuous_godel"
+                              ? "Logic: Gödel ([0,1])"
+                              : "Logic: Łukasiewicz ([0,1])";
+
+                const showStrong =
+                    state.logic === "lukasiewicz" ||
+                    state.logic === "continuous_lukasiewicz";
+                strongAndBtn.hidden = !showStrong;
+                strongOrBtn.hidden = !showStrong;
+            }
+
+            logicButton.addEventListener("click", () => {
+                logicDraft = state.logic;
+                logicDraftN = state.logicN;
+                updateLogicDialog();
+                logicDialog.showModal();
+            });
+
+            applyLogicBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                state.logic = logicDraft;
+                if (state.logic === "godel" || state.logic === "lukasiewicz") {
+                    state.logicN = Math.max(
+                        2,
+                        Math.min(64, Math.round(logicDraftN)),
+                    );
+                }
+                normaliseAllValues();
+                updateLogicButton();
+                logicDialog.close();
+                render();
+            });
+
+            logicDialog.addEventListener("close", () => {
+                logicDraft = state.logic;
+                logicDraftN = state.logicN;
+            });
 
             valueDialog.addEventListener("close", () => {
                 state.valuePickerNodeId = null;
@@ -1619,10 +2462,17 @@
                 if (e.target === valueDialog) valueDialog.close();
             });
 
+            logicDialog.addEventListener("click", (e) => {
+                if (e.target === logicDialog) logicDialog.close();
+            });
+
             /* Save the selected circuit as ONE reusable component. INPUT and OUTPUT nodes become its external interface; the internal gates are hidden. */
             document.getElementById("saveComponent").onclick = () => {
                 if (!state.selected.size) {
-                    alert("Select the nodes that make up the component first.");
+                    showMessage(
+                        "No components selected",
+                        "Select the gates and input/output nodes that should form the component first.",
+                    );
                     return;
                 }
                 document.getElementById("componentName").value = "";
@@ -1635,18 +2485,43 @@
             document
                 .getElementById("nameForm")
                 .addEventListener("submit", (e) => {
+                    if (e.submitter.value === "cancel") {
+                        document.getElementById("nameDialog").close("cancel");
+                        return;
+                    }
                     e.preventDefault();
                     const name = document
                         .getElementById("componentName")
                         .value.trim();
+
                     if (!name) return;
+
+                    const duplicate = state.components.some(
+                        (component) =>
+                            component.name.trim().toLowerCase() ===
+                            name.toLowerCase(),
+                    );
+
+                    if (duplicate) {
+                        showMessage(
+                            "Duplicate component name",
+                            `A component named "${name}" already exists. Choose a different name.`,
+                        );
+                        return;
+                    }
                     const ids = new Set(state.selected),
                         chosen = state.nodes.filter((n) => ids.has(n.id));
                     if (!chosen.length) return;
-                    const inputs = chosen.filter((n) => n.type === "INPUT"),
-                        outputs = chosen.filter((n) => n.type === "OUTPUT");
+                    const inputs = chosen
+                            .filter((n) => n.type === "INPUT")
+                            .sort(compareNodesPhysically),
+                        outputs = chosen
+                            .filter((n) => n.type === "OUTPUT")
+                            .sort(compareNodesPhysically);
+
                     if (!inputs.length && !outputs.length) {
-                        alert(
+                        showMessage(
+                            "No Inputs or Outputs",
                             "A component needs at least one Input or Output node.",
                         );
                         return;
@@ -1702,8 +2577,12 @@
                     label: comp.name,
                 });
                 // Preserve any external wires by mapping wires crossing the selection to component ports.
-                const inNodes = chosen.filter((x) => x.type === "INPUT"),
-                    outNodes = chosen.filter((x) => x.type === "OUTPUT");
+                const inNodes = chosen
+                        .filter((x) => x.type === "INPUT")
+                        .sort(compareNodesPhysically),
+                    outNodes = chosen
+                        .filter((x) => x.type === "OUTPUT")
+                        .sort(compareNodesPhysically);
                 const inMap = new Map(inNodes.map((x, i) => [x.id, i])),
                     outMap = new Map(outNodes.map((x, i) => [x.id, i]));
                 const newWires = [];
@@ -1781,12 +2660,14 @@
                     deleteBtn.onclick = (e) => {
                         e.stopPropagation();
 
-                        state.components = state.components.filter(
-                            (c) => c.id !== comp.id,
-                        );
+                        const dependents = getRecursiveDependents(comp.id);
 
-                        renderComponents();
-                        render();
+                        pendingComponentDeletion = {
+                            component: comp,
+                            dependents,
+                        };
+
+                        confirmDeleteComponent(comp, dependents);
                     };
 
                     wrapper.appendChild(b);
@@ -1794,6 +2675,42 @@
                     bar.appendChild(wrapper);
                 }
             }
+            function confirmDeleteComponent(comp, dependents) {
+                deleteComponentDialogTitle.textContent = `Delete "${comp.name}"?`;
+
+                deleteComponentDialogText.textContent = `This will remove the component definition and every instance of it from the current circuit.`;
+
+                deleteComponentDependencies.innerHTML = "";
+
+                if (dependents.length) {
+                    const heading = document.createElement("div");
+                    heading.textContent = `The following dependent components will also be deleted:`;
+                    heading.style.fontWeight = "700";
+                    heading.style.fontSize = "12px";
+                    heading.style.marginBottom = "8px";
+
+                    deleteComponentDependencies.appendChild(heading);
+
+                    dependents.forEach(({ component, depth }) => {
+                        const item = document.createElement("div");
+
+                        item.textContent = `${"↳ ".repeat(depth + 1)}${component.name}`;
+
+                        item.style.fontSize = "12px";
+                        item.style.color = "#e7eef5";
+                        item.style.margin = "4px 0";
+
+                        deleteComponentDependencies.appendChild(item);
+                    });
+
+                    deleteComponentDependencies.style.display = "block";
+                } else {
+                    deleteComponentDependencies.style.display = "none";
+                }
+
+                deleteComponentDialog.showModal();
+            }
+
             function escapeHtml(s) {
                 return String(s).replace(
                     /[&<>"']/g,
@@ -1811,12 +2728,14 @@
             function serialise() {
                 return JSON.stringify(
                     {
-                        version: 4,
+                        version: 6,
                         nodes: state.nodes,
                         wires: state.wires,
                         components: state.components,
                         pan: state.pan,
                         zoom: state.zoom,
+                        logic: state.logic,
+                        logicN: state.logicN,
                     },
                     null,
                     2,
@@ -1828,18 +2747,19 @@
                 state.components = Array.isArray(obj.components)
                     ? obj.components
                     : [];
-                state.nodes.forEach((n) => {
-                    if (n.type === "INPUT" || n.type === "OUTPUT")
-                        n.value = normaliseValue(n.value);
-                });
-                state.components.forEach((c) =>
-                    (c.nodes || []).forEach((n) => {
-                        if (n.type === "INPUT" || n.type === "OUTPUT")
-                            n.value = normaliseValue(n.value);
-                    }),
-                );
                 state.pan = obj.pan || { x: 0, y: 0 };
                 state.zoom = obj.zoom || 1;
+                state.logic =
+                    obj.logic === "continuous"
+                        ? "continuous_lukasiewicz"
+                        : LOGICS[obj.logic]
+                          ? obj.logic
+                          : "binary";
+                state.logicN = Math.max(
+                    2,
+                    Math.min(64, Math.round(Number(obj.logicN) || 3)),
+                );
+                normaliseAllValues();
                 state.selected.clear();
                 state.selectedWire = null;
                 // Backward compatibility for old components.
@@ -1853,19 +2773,77 @@
                             .filter((n) => n.type === "OUTPUT")
                             .map((n) => n.label);
                 });
+                updateLogicButton();
                 renderComponents();
                 render();
             }
             function persist() {
                 localStorage.setItem("logic-editor-state", serialise());
             }
+            deleteComponentDialog.addEventListener("close", () => {
+                if (deleteComponentDialog.returnValue !== "delete") {
+                    pendingComponentDeletion = null;
+                    return;
+                }
+
+                if (!pendingComponentDeletion) return;
+
+                const { component: comp, dependents } =
+                    pendingComponentDeletion;
+
+                const deletedComponentIds = new Set([
+                    comp.id,
+                    ...dependents.map(({ component }) => component.id),
+                ]);
+
+                state.components = state.components.filter(
+                    (component) => !deletedComponentIds.has(component.id),
+                );
+
+                const deletedNodeIds = new Set(
+                    state.nodes
+                        .filter(
+                            (node) =>
+                                node.type === "COMPONENT" &&
+                                deletedComponentIds.has(node.componentId),
+                        )
+                        .map((node) => node.id),
+                );
+
+                state.nodes = state.nodes.filter(
+                    (node) => !deletedNodeIds.has(node.id),
+                );
+
+                state.wires = state.wires.filter(
+                    (wire) =>
+                        !deletedNodeIds.has(wire.from) &&
+                        !deletedNodeIds.has(wire.to),
+                );
+
+                for (const id of deletedNodeIds) {
+                    state.selected.delete(id);
+                }
+
+                if (
+                    state.selectedWire &&
+                    !state.wires.some((wire) => wire.id === state.selectedWire)
+                ) {
+                    state.selectedWire = null;
+                }
+
+                pendingComponentDeletion = null;
+
+                renderComponents();
+                render();
+                persist();
+            });
             document.getElementById("saveLocal").onclick = () => {
                 persist();
             };
             document.getElementById("loadLocal").onclick = () => {
                 const raw = localStorage.getItem("logic-editor-state");
                 if (!raw) {
-                    alert("No saved circuit in this browser.");
+                    showMessage("No Save", "No saved circuit in this browser.");
                     return;
                 }
                 applySerialised(JSON.parse(raw));
@@ -1890,23 +2868,27 @@
                     try {
                         applySerialised(JSON.parse(reader.result));
                     } catch (err) {
-                        alert("Invalid circuit JSON.");
+                        showMessage(
+                            "Unable to Read JSON",
+                            "Invalid circuit JSON",
+                        );
                     }
                 };
                 reader.readAsText(file);
             };
 
             window.addEventListener("keydown", (e) => {
-				if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
-					e.preventDefault();
-					document.getElementById("saveLocal").click();
-					return;
-				}
+                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+                    e.preventDefault();
+                    document.getElementById("saveLocal").click();
+                    return;
+                }
 
                 if (e.key === "Delete" || e.key === "Backspace") {
                     if (
                         document.activeElement === inlineLabel ||
-                        valueDialog.open
+                        valueDialog.open ||
+                        logicDialog.open
                     )
                         return;
                     document.getElementById("deleteBtn").click();
@@ -1916,7 +2898,13 @@
                     state.rubberBand = null;
                     render();
                 }
-                if (e.key === " ") e.preventDefault();
+                if (
+                    e.key === " " &&
+                    e.target.tagName !== "INPUT" &&
+                    e.target.tagName !== "TEXTAREA"
+                ) {
+                    e.preventDefault();
+                }
             });
             window.addEventListener("keyup", (e) => {
                 if (e.key === " " && state.isPanning) {
@@ -1940,8 +2928,32 @@
                 if (p.x <= splitX) beginRename(n);
             });
 
-            renderComponents();
-            render();
+            function loadStateFromUrl() {
+                const raw = window.location.hash.slice(1);
+
+                if (!raw) return false;
+
+                try {
+                    const obj = JSON.parse(decodeURIComponent(raw));
+                    applySerialised(obj);
+					setToolbarVisible(false);
+					setPaletteVisible(false);
+                    return true;
+                } catch (err) {
+                    console.error("Invalid circuit in URL:", err);
+                    showMessage(
+                        "Invalid URL state",
+                        "The circuit encoded in the URL could not be loaded.",
+                    );
+                    return false;
+                }
+            }
+
+            if (!loadStateFromUrl()) {
+                updateLogicButton();
+                renderComponents();
+                render();
+            }
         </script>
     </body>
 </html>
