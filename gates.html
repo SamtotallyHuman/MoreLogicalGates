@@ -736,7 +736,7 @@
                 </p>
                 <div id="valuePickerOptions" class="valuePickerOptions"></div>
                 <div class="row">
-                    <button value="cancel">Cancel</button>
+                    <button value="cancel">Close</button>
                 </div>
             </form>
         </dialog>
@@ -2074,6 +2074,7 @@
 
             svg.addEventListener("mousedown", (e) => {
                 if (e.button === 1 || e.altKey || e.code === "Space") {
+					e.preventDefault();
                     state.isPanning = true;
                     state.panStart = {
                         x: e.clientX,
@@ -2197,6 +2198,9 @@
                 setZoom(state.zoom / 1.2);
             document.getElementById("zoomReset").onclick = () => setZoom(1);
             document.getElementById("fitBtn").onclick = () => {
+				fitScreen();
+			};
+			function fitScreen() {
                 if (!state.nodes.length) {
                     state.pan = { x: 0, y: 0 };
                     state.zoom = 1;
@@ -2225,7 +2229,7 @@
                 state.pan.y =
                     svg.clientHeight / 2 - ((minY + maxY) / 2) * state.zoom;
                 render();
-            };
+            }
             document
                 .querySelectorAll("[data-add]")
                 .forEach(
@@ -2928,6 +2932,12 @@
                 if (p.x <= splitX) beginRename(n);
             });
 
+			document.addEventListener('mousedown', (e) => {
+				if (e.button === 1) {
+					e.preventDefault();
+				}
+			});
+
             function loadStateFromUrl() {
                 const raw = window.location.hash.slice(1);
 
@@ -2938,6 +2948,7 @@
                     applySerialised(obj);
 					setToolbarVisible(false);
 					setPaletteVisible(false);
+					fitScreen();
                     return true;
                 } catch (err) {
                     console.error("Invalid circuit in URL:", err);
