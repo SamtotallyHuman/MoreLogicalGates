@@ -871,7 +871,7 @@
             );
 
             const state = {
-                logic: "binary",
+                logic: "boolean",
                 logicN: 3,
                 nodes: [],
                 wires: [],
@@ -956,8 +956,8 @@
              * rewriting rendering, persistence, wiring, or simulation.
              */
             const LOGICS = {
-                binary: {
-                    label: "Binary logic",
+                boolean: {
+                    label: "Boolean logic",
                     finite: true,
                     truthValues() {
                         return [0, 1];
@@ -1143,7 +1143,7 @@
             }
 
             function currentLogic() {
-                return LOGICS[state.logic] || LOGICS.binary;
+                return LOGICS[state.logic] || LOGICS.boolean;
             }
 
             function truthValues() {
@@ -2359,7 +2359,7 @@
             function updateLogicDialog() {
                 logicPickerOptions.innerHTML = "";
                 const choices = [
-                    ["binary", "Binary logic", "Two truth values: 0 and 1."],
+                    ["boolean", "Boolean logic", "Two truth values: 0 and 1."],
                     [
                         "godel",
                         "Gödel logic",
@@ -2410,8 +2410,8 @@
 
             function updateLogicButton() {
                 logicButton.textContent =
-                    state.logic === "binary"
-                        ? "Logic: Binary"
+                    state.logic === "boolean"
+                        ? "Logic: Boolean"
                         : state.logic === "godel"
                           ? `Logic: Gödel (${state.logicN}-valued)`
                           : state.logic === "lukasiewicz"
@@ -2754,7 +2754,7 @@
                         ? "continuous_lukasiewicz"
                         : LOGICS[obj.logic]
                           ? obj.logic
-                          : "binary";
+                          : "boolean";
                 state.logicN = Math.max(
                     2,
                     Math.min(64, Math.round(Number(obj.logicN) || 3)),
