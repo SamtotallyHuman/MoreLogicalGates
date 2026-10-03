@@ -2881,6 +2881,17 @@
                 reader.readAsText(file);
             };
 
+			svg.addEventListener("keydown", (e) => {
+				if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+                    e.preventDefault();
+                    for(const n of state.nodes) {
+						state.selected.clear();
+                		state.selected.add(n.id);
+					}
+                    return;
+                }
+			})
+
             window.addEventListener("keydown", (e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
                     e.preventDefault();
