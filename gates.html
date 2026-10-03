@@ -1001,7 +1001,7 @@
                         return values.length ? Math.max(...values) : 0;
                     },
                     not(value) {
-                        return Number(value) === 0 ? 1 : 0;
+                        return clamp01(1 - Number(value));
                     },
                     strongAnd(values) {
                         return this.and(values);
@@ -1066,7 +1066,7 @@
                         return values.length ? Math.max(...values) : 0;
                     },
                     not(value) {
-                        return Number(value) === 0 ? 1 : 0;
+                        return clamp01(1 - Number(value));
                     },
                     strongAnd(values) {
                         return this.and(values);
