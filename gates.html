@@ -627,6 +627,7 @@
                 <div class="toolGroup">
                     <button data-add="INPUT">Input</button>
                     <button data-add="OUTPUT">Output</button>
+					<button data-add="CONSTANT">Constant</button>
                 </div>
                 <div class="toolGroup">
                     <button id="saveComponent">Save component</button>
@@ -937,6 +938,7 @@
                 STRONG_OR: 2,
                 INPUT: 0,
                 OUTPUT: 1,
+				CONSTANT: 0,
             };
             const gateOutputs = {
                 AND: 1,
@@ -946,6 +948,7 @@
                 STRONG_OR: 1,
                 INPUT: 1,
                 OUTPUT: 0,
+				CONSTANT: 1,
             };
 
             let pendingComponentDeletion = null;
@@ -1229,12 +1232,12 @@
 
             function normaliseAllValues() {
                 state.nodes.forEach((n) => {
-                    if (n.type === "INPUT" || n.type === "OUTPUT")
+                    if (n.type === "INPUT" || n.type === "OUTPUT" || n.type === "CONSTANT")
                         n.value = normaliseValue(n.value);
                 });
                 state.components.forEach((c) =>
                     (c.nodes || []).forEach((n) => {
-                        if (n.type === "INPUT" || n.type === "OUTPUT")
+                        if (n.type === "INPUT" || n.type === "OUTPUT" || n.type === "CONSTANT")
                             n.value = normaliseValue(n.value);
                     }),
                 );
@@ -1342,6 +1345,7 @@
             }
 
             function ioLabelWidth(n) {
+				if (n.type === "CONSTANT") return Math.round(nodeWidth(n) * 0.25);
                 return Math.round(nodeWidth(n) * 0.55);
             }
 
@@ -1382,7 +1386,7 @@
             }
 
             function gateShape(type, w, h) {
-                if (type === "INPUT" || type === "OUTPUT" || type === "NOT") {
+                if (type === "INPUT" || type === "OUTPUT" || type === "NOT" || type === "CONSTANT") {
                     return `M 0 0 H ${w - 16} L ${w} ${h / 2} L ${w - 16} ${h} H 0 Z`;
                 }
                 if (type === "OR" || type === "STRONG_OR") {
@@ -1406,7 +1410,7 @@
                     y: snap(y),
                     label:
                         type === "INPUT"
-                            ? "A"
+                            ? "IN"
                             : type === "OUTPUT"
                               ? "OUT"
                               : type,
@@ -1454,7 +1458,6 @@
                 const nodes = (comp.nodes || []).map((n, i) => ({
                     ...n,
                     _i: i,
-                    value: valueDefault(),
                 }));
                 const vals = {};
                 const inNodes = nodes
@@ -1468,14 +1471,19 @@
                     n.value = vals[n._i];
                 });
 
-                for (const n of nodes)
-                    if (n.type !== "INPUT") vals[n._i] = valueDefault();
-
+                for (const n of nodes) {
+					if (n.type === "CONSTANT") vals[n._i] = n.value;
+                    if (n.type !== "INPUT" && n.type !== "CONSTANT") {
+						vals[n._i] = valueDefault();
+						n.value = valueDefault();
+					}
+				}
+				
                 for (let pass = 0; pass < nodes.length * 4 + 4; pass++) {
                     let changed = false;
 
                     for (const n of nodes) {
-                        if (n.type === "INPUT") continue;
+                        if (n.type === "INPUT" || n.type === "CONSTANT") continue;
 
                         const ins = Array.from(
                             { length: gateInputs[n.type] || 0 },
@@ -1554,7 +1562,7 @@
 
             function recompute() {
                 for (const n of state.nodes) {
-                    if (n.type !== "INPUT") n.value = valueDefault();
+                    if (n.type !== "INPUT" && n.type !== "CONSTANT") n.value = valueDefault();
                     else n.value = normaliseValue(n.value);
                     if (isComponent(n)) n._runtimeOutputs = [];
                 }
@@ -1563,7 +1571,7 @@
                     let changed = false;
 
                     for (const n of state.nodes) {
-                        if (n.type === "INPUT") continue;
+                        if (n.type === "INPUT" || n.type === "CONSTANT") continue;
 
                         const ins = Array.from({ length: inputCount(n) }, () =>
                             valueDefault(),
@@ -1904,6 +1912,61 @@
                                 beginValuePicker(n);
                             });
                         }
+                    } else if (n.type === "CONSTANT") {
+                        const labelW = ioLabelWidth(n);
+                        const valueW = ioValueWidth(n);
+                        const clipId = uid("ioClip");
+                        const clip = document.createElementNS(ns, "clipPath");
+                        clip.setAttribute("id", clipId);
+                        const clipPath = document.createElementNS(ns, "path");
+                        clipPath.setAttribute("d", gateShape(n.type, w, h));
+                        clip.appendChild(clipPath);
+                        defs.appendChild(clip);
+
+                        const io = document.createElementNS(ns, "g");
+                        io.setAttribute("clip-path", `url(#${clipId})`);
+
+                        const labelBg = document.createElementNS(ns, "rect");
+                        labelBg.setAttribute("x", 0);
+                        labelBg.setAttribute("y", 0);
+                        labelBg.setAttribute("width", labelW);
+                        labelBg.setAttribute("height", h);
+                        labelBg.setAttribute("fill", "#353229");
+                        io.appendChild(labelBg);
+
+                        const valuePart = document.createElementNS(ns, "rect");
+                        valuePart.setAttribute("x", labelW);
+                        valuePart.setAttribute("y", 0);
+                        valuePart.setAttribute("width", valueW);
+                        valuePart.setAttribute("height", h);
+                        valuePart.classList.add("ioValuePart");
+                        valuePart.style.fill = inputIoColour(n.value);
+                        io.appendChild(valuePart);
+
+                        const divider = document.createElementNS(ns, "line");
+                        divider.setAttribute("x1", labelW);
+                        divider.setAttribute("x2", labelW);
+                        divider.setAttribute("y1", 4);
+                        divider.setAttribute("y2", h - 4);
+                        divider.classList.add("ioDivider");
+                        io.appendChild(divider);
+
+                        g.appendChild(io);
+                        const valueText = appendText(
+                            g,
+                            displayValue(n.value),
+                            labelW + valueW * 0.42,
+                            h / 2,
+                            "ioValueText",
+                        );
+
+						valuePart.addEventListener("mousedown", (e) => {
+							e.stopPropagation();
+						});
+						valuePart.addEventListener("click", (e) => {
+							e.stopPropagation();
+							beginValuePicker(n);
+						});
                     } else if (n.type === "COMPONENT") {
                         const comp = componentById(n.componentId);
                         const ins = comp?.inputLabels || [];
@@ -2291,7 +2354,7 @@
             }
 
             function beginValuePicker(n) {
-                if (!n || n.type !== "INPUT") return;
+                if (!n) return;
 
                 state.valuePickerNodeId = n.id;
                 const logic = currentLogic();
